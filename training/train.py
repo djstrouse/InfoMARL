@@ -6,7 +6,8 @@ if "../" not in sys.path:
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
 from agents.TabularREINFORCE import *
 from training.REINFORCE import reinforce
-from plotting import *
+from plotting.plot_episode_stats import *
+from plotting.visualize_grid_world import *
 
 tf.reset_default_graph()
 
@@ -16,7 +17,7 @@ policy_estimator = PolicyEstimator(env)
 value_estimator = ValueEstimator(env)
 
 # set parameters
-num_episodes = 50000
+num_episodes = 500
 entropy_scale = np.logspace(np.log10(.2), np.log10(.01), num_episodes)
 beta = [0]*num_episodes
 

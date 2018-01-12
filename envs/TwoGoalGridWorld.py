@@ -71,6 +71,10 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     self.coord_to_state = coord_to_state
     self.state_to_coord = {v: k for k, v in coord_to_state.items()}
     
+    # maps action names to index (and back)
+    self.action_to_index = action_to_index
+    self.index_to_action = index_to_action
+    
     # maps goal index to grid coordinates (and back)
     goal_to_coord = {}
     for g in range(self.nG):

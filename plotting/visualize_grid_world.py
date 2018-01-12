@@ -12,7 +12,8 @@ def build_grid(grid_size, coord_to_state, metrics, wall_value, skip_value, skip_
       grid[coord[0],coord[1]] = metrics[state]
   return np.transpose(grid)
 
-def plot_arrows(action_probs, terminal_states, state_to_coord, grid_size, axis):
+def plot_arrows(action_probs, terminal_states, state_to_coord, grid_size,
+                action_to_index, axis):
   """Visualizes grid world policy. Arrows proportional to action prob."""
   # NOTE: quiver uses a different coordinate system than imshow, resulting in
   #       the necessity of a pretty funky coordinate transform to get them to
@@ -30,21 +31,21 @@ def plot_arrows(action_probs, terminal_states, state_to_coord, grid_size, axis):
         X.append(state_to_coord[state][0])
         Y.append(state_to_coord[state][1])
         prob = action_probs[state, action]
-        if action == UP:
+        if action == action_to_index['UP']:
           U.append(0)
           V.append(+prob)
-        elif action == RIGHT:
+        elif action == action_to_index['RIGHT']:
           U.append(+prob)
           V.append(0)
-        elif action == DOWN:
+        elif action == action_to_index['DOWN']:
           U.append(0)
           V.append(-prob)
-        elif action == LEFT:
+        elif action == action_to_index['LEFT']:
           U.append(-prob)
           V.append(0)
         else:
           raise ValueError('action out of range: must be 0-3')
-    if action in [LEFT, RIGHT]:
+    if action in [action_to_index['LEFT'], action_to_index['RIGHT']]:
       units = 'x'
       scale_units = 'height'
     else:
@@ -54,7 +55,7 @@ def plot_arrows(action_probs, terminal_states, state_to_coord, grid_size, axis):
     axis.quiver(X, Y, U, V, pivot = 'tail', units = units, scale_units = scale_units, scale = scale, width = .05)
 
 def fill_subplot(ax, goal, grid_size, coord_to_state, terminal_states, metrics,
-                 max_val, action_probs, colors):
+                 max_val, action_probs, action_to_index, colors):
   """Fills in metric/policy viz for particular goal."""
   state_to_coord = {v: k for k, v in coord_to_state.items()}
   cm = mcolors.LinearSegmentedColormap.from_list('my_colormap', colors)
@@ -64,7 +65,7 @@ def fill_subplot(ax, goal, grid_size, coord_to_state, terminal_states, metrics,
   im = ax.imshow(grid,
                  interpolation = 'none', origin = 'upper', cmap = cm,
                  vmin = -max_val, vmax = max_val)  
-  plot_arrows(action_probs, terminal_states, state_to_coord, grid_size, ax)
+  plot_arrows(action_probs, terminal_states, state_to_coord, grid_size, action_to_index, ax)
   ax.set(adjustable = 'box-forced', aspect = 'equal')
   ax.axis('off')
   return im
@@ -79,7 +80,8 @@ def plot_value_map(values, action_probs, env):
   goal = 0
   for ax in axes.flat:
     im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
-                      values[:,goal], max_value, action_probs[:,goal,:], colors)
+                      values[:,goal], max_value, action_probs[:,goal,:],
+                      env.action_to_index, colors)
     goal += 1
   cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.95,
                       boundaries = np.linspace(0, max_value, 101),
@@ -96,7 +98,8 @@ def plot_kl_map(kls, action_probs, env):
   goal = 0
   for ax in axes.flat:
     im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
-                      kls[:,goal], max_value, action_probs[:,goal,:], colors)
+                      kls[:,goal], max_value, action_probs[:,goal,:],
+                      env.action_to_index, colors)
     goal += 1
   cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.95,
                       boundaries = np.linspace(0, max_value, 101),
@@ -111,8 +114,10 @@ def print_policy(action_probs, env):
       if s not in env.goal_locs:
         print('state %i @ (%i,%i): up = %.2f, down = %.2f, left = %.2f, right = %.2f' %
               (s, env.state_to_coord[s][0], env.state_to_coord[s][1],
-               action_probs[s,g,UP], action_probs[s,g,DOWN],
-               action_probs[s,g,LEFT], action_probs[s,g,RIGHT]))
+               action_probs[s,g,env.action_to_index['UP']],
+               action_probs[s,g,env.action_to_index['DOWN']],
+               action_probs[s,g,env.action_to_index['LEFT']],
+               action_probs[s,g,env.action_to_index['RIGHT']]))
       else:
         print('state %i @ (%i,%i): terminal state' %
               (s, env.state_to_coord[s][0], env.state_to_coord[s][1]))
