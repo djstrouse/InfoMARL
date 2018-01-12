@@ -5,3 +5,5 @@ Here we use information regularization to promote cooperation / competition in a
 TODOS:
 *	all experiment parameters should be set by a centralized config file
 *	figure saving
+*	basic figures for agent 1
+*	implement agent 2
