@@ -3,7 +3,8 @@ import itertools
 from collections import namedtuple
 
 
-def reinforce(env, policy_estimator, value_estimator, num_episodes, entropy_scale, beta, discount_factor = 1.0):
+def reinforce(env, policy_estimator, value_estimator, num_episodes,
+              entropy_scale, beta, discount_factor):
     """
     REINFORCE (Monte Carlo Policy Gradient) Algorithm. Optimizes the policy
     function approximator using policy gradient.
@@ -19,14 +20,23 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes, entropy_scal
     Returns:
         An EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
+    
+    # this allows one to set params to scalars when not wanting to anneal them
+    if not isinstance(entropy_scale, (list, np.ndarray)):
+        entropy_scale = [entropy_scale]*num_episodes
+    if not isinstance(beta, (list, np.ndarray)):
+        beta = [beta]*num_episodes
+    
 
     # Keeps track of useful statistics
-    EpisodeStats = namedtuple("Stats",["episode_lengths", "episode_rewards"])
+    EpisodeStats = namedtuple("Stats",
+                             ["episode_lengths", "episode_rewards"])
     stats = EpisodeStats(
         episode_lengths = np.zeros(num_episodes),
         episode_rewards = np.zeros(num_episodes))    
     
-    Transition = namedtuple("Transition", ["state", "action", "reward", "next_state", "done"])
+    Transition = namedtuple("Transition",
+                           ["state", "action", "reward", "next_state", "done"])
     
     for i_episode in range(num_episodes):
         # Reset the environment and pick the fisrst action

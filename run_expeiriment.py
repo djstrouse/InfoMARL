@@ -8,21 +8,22 @@ from agents.TabularREINFORCE import *
 from training.REINFORCE import reinforce
 from plotting.plot_episode_stats import *
 from plotting.visualize_grid_world import *
+import config
 
 tf.reset_default_graph()
 
 global_step = tf.Variable(0, name = "global_step", trainable = False)
-env = TwoGoalGridWorld(shape = [3,3])
+env_param, agent_param, training_param, experiment_name = config.get_config()
+env = TwoGoalGridWorld(env_param.shape,
+                       env_param.r_correct,
+                       env_param.r_incorrect,
+                       env_param.r_step)
 policy_estimator = PolicyEstimator(env)
 value_estimator = ValueEstimator(env)
 
-# set parameters
-num_episodes = 500
-entropy_scale = np.logspace(np.log10(.2), np.log10(.01), num_episodes)
-beta = [0]*num_episodes
 
 with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     stats = reinforce(env, policy_estimator, value_estimator,
                       num_episodes = num_episodes,
                       entropy_scale = entropy_scale,

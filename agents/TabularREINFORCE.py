@@ -65,17 +65,12 @@ class ValueEstimator():
             self.goal = tf.placeholder(tf.int32, [], name = "goal")
             self.target = tf.placeholder(dtype=tf.float32, name="target")
 
-            # tabular mapping from (state,goal) to action
-            state_goal_one_hot = tf.one_hot(self.goal * env.observation_space.n + self.state,
-                                            env.observation_space.n * env.nG)
-            self.output_layer = tf.contrib.layers.fully_connected(
-                inputs = tf.expand_dims(state_goal_one_hot, 0),
-                num_outputs = 1,
-                activation_fn = None,
-                weights_initializer = tf.zeros_initializer)
+            # tabular mapping from (goal, state) to value
+            self.value_estimates = tf.Variable(tf.random_normal([env.nG, env.nS], stddev = .1), name='value_estimates')
 
-            self.value_estimate = tf.squeeze(self.output_layer)
-            self.loss = tf.squared_difference(self.value_estimate, self.target)
+
+            self.value = tf.squeeze(self.value_estimates[self.goal, self.state])
+            self.loss = tf.squared_difference(self.value, self.target)
 
             self.optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate)
             self.train_op = self.optimizer.minimize(
