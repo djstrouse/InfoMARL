@@ -67,8 +67,7 @@ class ValueEstimator():
 
             # tabular mapping from (goal, state) to value
             self.value_estimates = tf.Variable(tf.random_normal([env.nG, env.nS], stddev = .1), name='value_estimates')
-
-
+            
             self.value = tf.squeeze(self.value_estimates[self.goal, self.state])
             self.loss = tf.squared_difference(self.value, self.target)
 
@@ -78,7 +77,7 @@ class ValueEstimator():
     
     def predict(self, state, goal, sess = None):
         sess = sess or tf.get_default_session()
-        return sess.run(self.value_estimate, {self.state: state, self.goal: goal})
+        return sess.run(self.value, {self.state: state, self.goal: goal})
 
     def update(self, state, goal, target, sess = None):
         sess = sess or tf.get_default_session()

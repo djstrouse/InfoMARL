@@ -1,5 +1,4 @@
 from collections import namedtuple
-import numpy as np
 from util.anneal import log_decay
 
 experiment_name = 'test'
@@ -28,7 +27,7 @@ TrainingParam = namedtuple('TrainingParameters',
                            'entropy_scale',
                            'beta',
                            'discount_factor'])
-num_episodes = 1000
+num_episodes = 100
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.2, .01, num_episodes),
                                beta = 0,

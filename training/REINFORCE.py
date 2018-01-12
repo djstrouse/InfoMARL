@@ -2,6 +2,10 @@ import numpy as np
 import itertools
 from collections import namedtuple
 
+EpisodeStats = namedtuple("Stats",
+                         ["episode_lengths", "episode_rewards"])
+Transition = namedtuple("Transition",
+                       ["state", "action", "reward", "next_state", "done"])
 
 def reinforce(env, policy_estimator, value_estimator, num_episodes,
               entropy_scale, beta, discount_factor):
@@ -29,14 +33,9 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
     
 
     # Keeps track of useful statistics
-    EpisodeStats = namedtuple("Stats",
-                             ["episode_lengths", "episode_rewards"])
     stats = EpisodeStats(
         episode_lengths = np.zeros(num_episodes),
         episode_rewards = np.zeros(num_episodes))    
-    
-    Transition = namedtuple("Transition",
-                           ["state", "action", "reward", "next_state", "done"])
     
     for i_episode in range(num_episodes):
         # Reset the environment and pick the fisrst action
