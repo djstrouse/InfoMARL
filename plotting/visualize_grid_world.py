@@ -70,41 +70,55 @@ def fill_subplot(ax, goal, grid_size, coord_to_state, terminal_states, metrics,
   ax.axis('off')
   return im
 
-def plot_value_map(values, action_probs, env):
+def plot_value_map(values, action_probs, env, figure_sizes, noshow = False, directory = None):
   """Visualizes state value and policy overlaid, for all goals."""
   max_value = 1
   colors1 = plt.cm.binary(np.linspace(.2, .8, 128))
   colors2 = plt.cm.viridis_r(np.linspace(.2, .8, 128))
   colors = np.vstack((colors1, colors2))
-  fig, axes = plt.subplots(ncols = env.nG, sharex = True, sharey = True)
+  fig, axes = plt.subplots(ncols = env.nG, figsize = figure_sizes.figure, sharex = True, sharey = True)
   goal = 0
   for ax in axes.flat:
     im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
                       values[:,goal], max_value, action_probs[:,goal,:],
                       env.action_to_index, colors)
     goal += 1
-  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.95,
+  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.75,
                       boundaries = np.linspace(0, max_value, 101),
                       ticks = np.linspace(0, 1, 5))
-  plt.show(block = False)
+  cbar.ax.tick_params(labelsize = figure_sizes.tick_label)
+  #plt.suptitle('Value function', fontsize = figure_sizes.title)
+  if directory:
+      plt.savefig(directory+'values.eps', format='eps')
+      plt.savefig(directory+'values.pdf', format='pdf')
+      plt.savefig(directory+'values.png', format='png')
+  if noshow: plt.close(fig)
+  else: plt.show(block = False)
   
-def plot_kl_map(kls, action_probs, env):
+def plot_kl_map(kls, action_probs, env, figure_sizes, noshow = False, directory = None):
   """Visualizes kls and policy overlaid, for all goals."""
   max_value = 1
   colors1 = plt.cm.binary(np.linspace(.2, .8, 128))
   colors2 = plt.cm.viridis_r(np.linspace(.2, .8, 128))
   colors = np.vstack((colors1, colors2))
-  fig, axes = plt.subplots(ncols = env.nG, sharex = True, sharey = True)
+  fig, axes = plt.subplots(ncols = env.nG, figsize = figure_sizes.figure, sharex = True, sharey = True)
   goal = 0
   for ax in axes.flat:
     im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
                       kls[:,goal], max_value, action_probs[:,goal,:],
                       env.action_to_index, colors)
     goal += 1
-  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.95,
+  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.75,
                       boundaries = np.linspace(0, max_value, 101),
                       ticks = np.linspace(0, 1, 5))
-  plt.show(block = False)  
+  cbar.ax.tick_params(labelsize = figure_sizes.tick_label)
+  #plt.suptitle('I(action;goal|state)', fontsize = figure_sizes.title)
+  if directory:
+      plt.savefig(directory+'kls.eps', format='eps')
+      plt.savefig(directory+'kls.pdf', format='pdf')
+      plt.savefig(directory+'kls.png', format='png')
+  if noshow: plt.close(fig)
+  else: plt.show(block = False)
   
 def print_policy(action_probs, env):
   """Prints state-by-state action probabilities."""

@@ -3,7 +3,7 @@ import itertools
 from collections import namedtuple
 
 EpisodeStats = namedtuple("Stats",
-                         ["episode_lengths", "episode_rewards"])
+                         ["episode_lengths", "episode_rewards", "episode_kls"])
 Transition = namedtuple("Transition",
                        ["state", "action", "reward", "next_state", "done"])
 
@@ -30,12 +30,12 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
         entropy_scale = [entropy_scale]*num_episodes
     if not isinstance(beta, (list, np.ndarray)):
         beta = [beta]*num_episodes
-    
 
     # Keeps track of useful statistics
     stats = EpisodeStats(
         episode_lengths = np.zeros(num_episodes),
-        episode_rewards = np.zeros(num_episodes))    
+        episode_rewards = np.zeros(num_episodes),
+        episode_kls = np.zeros(num_episodes))    
     
     for i_episode in range(num_episodes):
         # Reset the environment and pick the fisrst action
@@ -44,10 +44,11 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
         episode = []
         
         # One step in the environment
-        for t in itertools.count():
+        for t in itertools.count(start = 1):
             
             # Take a step
             action_probs = policy_estimator.predict(state, goal)
+            kl = policy_estimator.get_kl(state, goal)
             action = np.random.choice(np.arange(len(action_probs)), p = action_probs)
             next_state, reward, done, _ = env.step(action)
             
@@ -58,6 +59,7 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
             # Update statistics
             stats.episode_rewards[i_episode] += reward
             stats.episode_lengths[i_episode] = t
+            stats.episode_kls[i_episode] += kl
             
             # Print out which step we're on, useful for debugging.
             print("\rStep {} @ Episode {}/{} ({})".format(
