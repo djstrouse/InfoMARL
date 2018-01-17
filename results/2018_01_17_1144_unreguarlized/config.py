@@ -27,9 +27,9 @@ TrainingParam = namedtuple('TrainingParameters',
                            'entropy_scale',
                            'beta',
                            'discount_factor'])
-num_episodes = 25000
+num_episodes = 100000
 training_param = TrainingParam(num_episodes = num_episodes,
-                               entropy_scale = .01,
+                               entropy_scale = log_decay(.5, .005, num_episodes),
                                beta = 0,
                                discount_factor = .9)
 
