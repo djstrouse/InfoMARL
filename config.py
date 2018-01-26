@@ -1,7 +1,12 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'unreguarlized'
+experiment_name = 'small_negative'
+
+# justification for experiment
+'''
+lowering magnitude of beta since policies suboptimal
+'''
 
 # TwoGoalGridWorld environment variables
 EnvParam = namedtuple('EnvironmentParameters',
@@ -19,19 +24,21 @@ AgentParam = namedtuple('AgentParameters',
                        ['policy_learning_rate',
                         'value_learning_rate'])
 agent_param = AgentParam(policy_learning_rate = 0.025,
-                         value_learning_rate = 0.05)
+                         value_learning_rate = 0.025)
 
 # REINFORCE training variables
 TrainingParam = namedtuple('TrainingParameters',
                           ['num_episodes',
                            'entropy_scale',
                            'beta',
-                           'discount_factor'])
-num_episodes = 25000
+                           'discount_factor',
+                           'max_episode_length'])
+num_episodes = 100000
 training_param = TrainingParam(num_episodes = num_episodes,
-                               entropy_scale = .01,
-                               beta = 0,
-                               discount_factor = .9)
+                               entropy_scale = log_decay(.5, .005, num_episodes),
+                               beta = -.025,
+                               discount_factor = .9,
+                               max_episode_length = 100)
 
 def get_config():
     return env_param, agent_param, training_param, experiment_name

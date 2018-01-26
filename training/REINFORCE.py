@@ -8,7 +8,7 @@ Transition = namedtuple("Transition",
                        ["state", "action", "reward", "next_state", "done"])
 
 def reinforce(env, policy_estimator, value_estimator, num_episodes,
-              entropy_scale, beta, discount_factor):
+              entropy_scale, beta, discount_factor, max_episode_length):
     """
     REINFORCE (Monte Carlo Policy Gradient) Algorithm. Optimizes the policy
     function approximator using policy gradient.
@@ -66,7 +66,7 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
                     t, i_episode + 1, num_episodes, stats.episode_rewards[i_episode - 1]), end="")
             # sys.stdout.flush()
 
-            if done: break
+            if done or t > max_episode_length: break
                 
             state = next_state
     

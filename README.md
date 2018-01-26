@@ -5,3 +5,6 @@ Here we use information regularization to promote cooperation / competition via 
 TODOS:
 *	find good training parameters for agent 1
 *	implement agent 2
+
+OPTIONAL:
+*	try discounting kl / entropy into future (like Distral paper); for high enough beta, agent should try not to terminate episodes

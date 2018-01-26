@@ -32,7 +32,8 @@ with tf.Session() as sess:
                       num_episodes = training_param.num_episodes,
                       entropy_scale = training_param.entropy_scale,
                       beta = training_param.beta,
-                      discount_factor = training_param.discount_factor)
+                      discount_factor = training_param.discount_factor,
+                      max_episode_length = training_param.max_episode_length)
     values = get_values(value_estimator, env, sess) # state X goal
     kls = get_kls(policy_estimator, env, sess) # state X goal
     action_probs = get_action_probs(policy_estimator, env, sess) # state X goal X action
