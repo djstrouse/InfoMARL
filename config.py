@@ -1,11 +1,11 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'small_negative'
+experiment_name = 'unregularized'
 
 # justification for experiment
 '''
-lowering magnitude of beta since policies suboptimal
+running unregularized with same param as small_negative and small_positive
 '''
 
 # TwoGoalGridWorld environment variables
@@ -36,7 +36,7 @@ TrainingParam = namedtuple('TrainingParameters',
 num_episodes = 100000
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = -.025,
+                               beta = 0,
                                discount_factor = .9,
                                max_episode_length = 100)
 
