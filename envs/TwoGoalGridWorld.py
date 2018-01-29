@@ -6,8 +6,9 @@ UP = 0
 RIGHT = 1
 DOWN = 2
 LEFT = 3
+STAY = 4
 
-action_to_index = {'UP': UP, 'RIGHT': RIGHT, 'DOWN': DOWN, 'LEFT': LEFT }
+action_to_index = {'UP': UP, 'RIGHT': RIGHT, 'DOWN': DOWN, 'LEFT': LEFT, 'STAY': STAY}
 index_to_action = {v: k for k, v in action_to_index.items()}
 
 # for more control, could subclass the superclass Env in gym/core.py
@@ -22,7 +23,8 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
   o  o  o  o
   A is your position, + is a terminal state with positive reward (r_correct),
   and - a terminal state with negative reward (r_incorrect).
-  You can take actions in each direction (UP=0, RIGHT=1, DOWN=2, LEFT=3).
+  You can take actions in each direction (UP=0, RIGHT=1, DOWN=2, LEFT=3), or
+  choose not to move at all (STAY=4).
   Actions going off the edge leave you in your current state.
   You receive a reward of r_step at each step until you reach a terminal state.
   goal_locs allows for changing the location of number of goals from default.
@@ -51,7 +53,7 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     self.r_step = r_step
 
     nS = np.prod(shape)
-    nA = 4
+    nA = 5
 
     self.max_y = shape[0]
     self.max_x = shape[1]
@@ -137,6 +139,7 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
         P[s][RIGHT] = [(1.0, s, reward, True)]
         P[s][DOWN] = [(1.0, s, reward, True)]
         P[s][LEFT] = [(1.0, s, reward, True)]
+        P[s][STAY] = [(1.0, s, reward, True)]
       # not a terminal state
       else:
         ns_up = s if y == 0 else s - self.max_x
@@ -147,6 +150,7 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
         P[s][RIGHT] = [(1.0, ns_right, self._reward(ns_right), is_done(ns_right))]
         P[s][DOWN] = [(1.0, ns_down, self._reward(ns_down), is_done(ns_down))]
         P[s][LEFT] = [(1.0, ns_left, self._reward(ns_left), is_done(ns_left))]
+        P[s][STAY] = [(1.0, s, self._reward(s), is_done(s))]        
 
       it.iternext()
       

@@ -126,12 +126,13 @@ def print_policy(action_probs, env):
     print('-'*10+'GOAL %i'%g+'-'*10)
     for s in range(env.nS):
       if s not in env.goal_locs:
-        print('state %i @ (%i,%i): up = %.2f, down = %.2f, left = %.2f, right = %.2f' %
+        print('state %i @ (%i,%i): up = %.2f, down = %.2f, left = %.2f, right = %.2f, stay = %.2f' %
               (s, env.state_to_coord[s][0], env.state_to_coord[s][1],
                action_probs[s,g,env.action_to_index['UP']],
                action_probs[s,g,env.action_to_index['DOWN']],
                action_probs[s,g,env.action_to_index['LEFT']],
-               action_probs[s,g,env.action_to_index['RIGHT']]))
+               action_probs[s,g,env.action_to_index['RIGHT']],
+               action_probs[s,g,env.action_to_index['STAY']]))
       else:
         print('state %i @ (%i,%i): terminal state' %
               (s, env.state_to_coord[s][0], env.state_to_coord[s][1]))
