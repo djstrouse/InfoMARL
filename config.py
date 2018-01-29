@@ -1,11 +1,11 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'unregularized'
+experiment_name = 'overshooting'
 
 # justification for experiment
 '''
-running unregularized with same param as small_negative and small_positive
+with interior goals and large beta, does the agent overshoot to signal?
 '''
 
 # TwoGoalGridWorld environment variables
@@ -13,11 +13,15 @@ EnvParam = namedtuple('EnvironmentParameters',
                      ['shape',
                       'r_correct',
                       'r_incorrect',
-                      'r_step'])
+                      'r_step',
+                      'goal_locs',
+                      'goal_dist'])
 env_param = EnvParam(shape = [5,5],
                      r_correct = +1,
                      r_incorrect = -1,
-                     r_step = 0.)
+                     r_step = 0.,
+                     goal_locs = [1,3],
+                     goal_dist = None)
 
 # TabularREINFORCE agent variables
 AgentParam = namedtuple('AgentParameters',
@@ -36,7 +40,7 @@ TrainingParam = namedtuple('TrainingParameters',
 num_episodes = 100000
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = 0,
+                               beta = .025,
                                discount_factor = .9,
                                max_episode_length = 100)
 
