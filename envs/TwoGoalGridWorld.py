@@ -113,12 +113,15 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     else: reward = self.r_step
     return reward
 
-  def _reset(self):
+  def _reset(self, goal = None):
     """Overwrites inherited _reset to: sample goal, build transition matrix,
     initialize state, and return goal."""
     
     # sample goal
-    self.g = np.random.choice(self.nG, size = None, p = self.goal_dist)
+    if goal is None:
+      self.g = np.random.choice(self.nG, size = None, p = self.goal_dist)
+    else:
+      self.g = goal
     
     # build transition matrix
     grid = np.arange(self.nS).reshape(self.shape)
