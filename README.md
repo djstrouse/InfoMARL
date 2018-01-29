@@ -7,3 +7,5 @@ TODOS:
 
 OPTIONAL:
 *	try discounting kl / entropy into future (like Distral paper); for high enough beta, agent should try not to terminate episodes
+*	under what conditions might agent 1 "overshoot" to signal?
+*	under what conditions are I(traj;goal) and I(action;goal|state) approx equal?
