@@ -5,7 +5,7 @@ experiment_name = 'overshooting'
 
 # justification for experiment
 '''
-with interior goals and large beta, does the agent overshoot to signal?
+turning up beta to promote overshooting
 '''
 
 # TwoGoalGridWorld environment variables
@@ -37,10 +37,10 @@ TrainingParam = namedtuple('TrainingParameters',
                            'beta',
                            'discount_factor',
                            'max_episode_length'])
-num_episodes = 100000
+num_episodes = 1000
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = .025,
+                               beta = .1,
                                discount_factor = .9,
                                max_episode_length = 100)
 
