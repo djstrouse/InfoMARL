@@ -1,11 +1,10 @@
 import numpy as np
 import itertools
+import copy
 from collections import namedtuple
 
-EpisodeStats = namedtuple("Stats",
-                         ["episode_lengths", "episode_rewards", "episode_kls"])
-Transition = namedtuple("Transition",
-                       ["state", "action", "reward", "next_state", "done"])
+EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
+Transition = namedtuple('Transition', ['state', 'action', 'reward'])
 
 def reinforce(env, policy_estimator, value_estimator, num_episodes,
               entropy_scale, beta, discount_factor, max_episode_length):
@@ -38,7 +37,7 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
         episode_kls = np.zeros(num_episodes))    
     
     for i_episode in range(num_episodes):
-        # Reset the environment and pick the fisrst action
+        # Reset the environment and pick the first action
         state, goal = env.reset()
         
         episode = []
@@ -53,8 +52,7 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
             next_state, reward, done, _ = env.step(action)
             
             # Keep track of the transition
-            episode.append(Transition(
-              state = state, action = action, reward = reward, next_state = next_state, done = done))
+            episode.append(Transition(state = state, action = action, reward = reward))
             
             # Update statistics
             stats.episode_rewards[i_episode] += reward
@@ -80,6 +78,11 @@ def reinforce(env, policy_estimator, value_estimator, num_episodes,
             baseline_value = value_estimator.predict(transition.state, goal)            
             advantage = total_return - baseline_value
             # Update our policy estimator
-            policy_estimator.update(transition.state, goal, advantage, transition.action, entropy_scale[i_episode], beta[i_episode])
+            policy_estimator.update(transition.state,
+                                    goal,
+                                    advantage,
+                                    transition.action,
+                                    entropy_scale[i_episode],
+                                    beta[i_episode])
     
     return stats

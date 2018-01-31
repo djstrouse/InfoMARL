@@ -112,9 +112,9 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     # otherwise, stepwise reward
     else: reward = self.r_step
     return reward
-
+  
   def _reset(self, goal = None):
-    """Overwrites inherited _reset to: sample goal, build transition matrix,
+    """Overwrites inherited reset to: sample goal, build transition matrix,
     initialize state, and return goal."""
     
     # sample goal
@@ -166,8 +166,11 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
 
     self.lastaction = None
     return self.s, self.g
+  
+  def set_goal(self, goal):
+    return self._reset(goal)
 
-  def _render(self, mode = 'human', close = False):
+  def _render(self, mode = 'human', close = False, bob_state = None):
       if close: return
 
       outfile = StringIO() if mode == 'ansi' else sys.stdout
@@ -179,22 +182,24 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
         y, x = it.multi_index
 
         if self.s == s:
-            output = " A "
+          output = " A "
+        elif (bob_state is not None) and (s == bob_state):
+          output = " B "
         elif s == self.goal_locs[self.g]:
-            output = " + "
+          output = " + "
         elif s in self.goal_locs:
-            output = " - "
+          output = " - "
         else:
-            output = " o "
+          output = " o "
 
         if x == 0:
-            output = output.lstrip() 
+          output = output.lstrip() 
         if x == self.shape[1] - 1:
-            output = output.rstrip()
+          output = output.rstrip()
 
         outfile.write(output)
 
         if x == self.shape[1] - 1:
-            outfile.write("\n")
+          outfile.write("\n")
 
         it.iternext()

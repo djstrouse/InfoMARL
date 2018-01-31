@@ -1,27 +1,12 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'overshooting'
+experiment_name = 'unregularized'
 
 # justification for experiment
 '''
-turning up beta to promote overshooting
+repeating best param several times
 '''
-
-# TwoGoalGridWorld environment variables
-EnvParam = namedtuple('EnvironmentParameters',
-                     ['shape',
-                      'r_correct',
-                      'r_incorrect',
-                      'r_step',
-                      'goal_locs',
-                      'goal_dist'])
-env_param = EnvParam(shape = [5,5],
-                     r_correct = +1,
-                     r_incorrect = -1,
-                     r_step = 0.,
-                     goal_locs = [1,3],
-                     goal_dist = None)
 
 # TabularREINFORCE agent variables
 AgentParam = namedtuple('AgentParameters',
@@ -40,9 +25,9 @@ TrainingParam = namedtuple('TrainingParameters',
 num_episodes = 1000
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = .1,
+                               beta = 0,
                                discount_factor = .9,
                                max_episode_length = 100)
 
 def get_config():
-    return env_param, agent_param, training_param, experiment_name
+    return agent_param, training_param, experiment_name
