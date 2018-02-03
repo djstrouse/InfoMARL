@@ -69,8 +69,8 @@ def train_alice(alice_config_ext = '', env_config_ext = ''):
     pickle.dump(result, output, pickle.HIGHEST_PROTOCOL)
   
   # copy config file to results directory to ensure experiment repeatable
-  copy(os.getcwd()+'/alice_config'+config_extension+'.py', directory+'alice_config.py')
-  copy(os.getcwd()+'/env_config'+config_extension+'.py', directory+'env_config.py')
+  copy(os.getcwd()+'/alice_config'+alice_config_ext+'.py', directory+'alice_config.py')
+  copy(os.getcwd()+'/env_config'+env_config_ext+'.py', directory+'env_config.py')
       
   # plot experiment and save figures
   FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
@@ -89,6 +89,7 @@ def train_alice(alice_config_ext = '', env_config_ext = ''):
   print('')
   print('-'*k+'POLICY'+'-'*k)
   print_policy(action_probs, env)
+  print('')
   
   return
 
