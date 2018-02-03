@@ -2,7 +2,7 @@ import itertools
 import copy
 import numpy as np
 
-def play(env, alice, bob, max_episode_length = 100):
+def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
   
   alice_env = env
   bob_env = copy.copy(alice_env)
@@ -25,6 +25,7 @@ def play(env, alice, bob, max_episode_length = 100):
   draw_bob = True
   
   # draw initial env
+  print('')
   alice_env._render(bob_state = bob_state)
   print('')
   
@@ -53,13 +54,22 @@ def play(env, alice, bob, max_episode_length = 100):
       print('alice step %i: reward = %i, total kl = %.2f' % (t, alice_total_reward, alice_total_kl))
       print('')
       if alice_done: draw_alice = False # only draw alice step first step after done
-    
-    
+      
     # then bob takes a step
     if not bob_done:
-      bob_action_probs, bob_value = bob.predict(alice_states, alice_actions, bob_state)
+      if bob_goal_access is None:
+        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
+                                                          obs_states = alice_states,
+                                                          obs_actions = alice_actions)
+        z = bob.get_z(alice_states, alice_actions, bob_state)
+      elif bob_goal_access == 'immediate':
+        if goal == 0: z = [-1]
+        elif goal == 1: z = [+1]
+        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
+                                                          z = z)
+      elif bob_goal_access == 'delayed':
+        raise NotImplementedError('delayed goal access for bob not yet implemented')
       bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
-      z = bob.get_z(alice_states, alice_actions, bob_state)
       next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
       bob_total_reward += bob_reward
       bob_episode_length = t
@@ -69,7 +79,20 @@ def play(env, alice, bob, max_episode_length = 100):
     # draw env with bob step
     if draw_bob:
       alice_env._render(bob_state = next_bob_state)
+      if bob_goal_access is not None: z = z[0]
       print('bob step %i: reward = %i, rnn latent = %.2f' % (t, bob_total_reward, z))
+      print('policy: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
+            (bob_action_probs[env.action_to_index['LEFT']],
+             bob_action_probs[env.action_to_index['UP']],
+             bob_action_probs[env.action_to_index['RIGHT']],
+             bob_action_probs[env.action_to_index['DOWN']],
+             bob_action_probs[env.action_to_index['STAY']]))
+      print('logits: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
+            (logits[env.action_to_index['LEFT']],
+             logits[env.action_to_index['UP']],
+             logits[env.action_to_index['RIGHT']],
+             logits[env.action_to_index['DOWN']],
+             logits[env.action_to_index['STAY']]))
       print('')
       if bob_done: draw_bob = False # only draw bob step first step after done
 
@@ -77,4 +100,6 @@ def play(env, alice, bob, max_episode_length = 100):
         
     alice_state = next_alice_state
     bob_state = next_bob_state
+    
+  #bob.print_trainable()
   

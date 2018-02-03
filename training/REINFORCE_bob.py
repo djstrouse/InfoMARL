@@ -10,10 +10,10 @@ Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'sta
 
 def reinforce(env, alice, bob, num_episodes,
               entropy_scale, value_scale, discount_factor,
-              max_episode_length, viz_episode_every = 100):
+              max_episode_length, bob_goal_access = None, viz_episode_every = 100):
     """
     REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
-    in which the alice is considered part of the env for bob.
+    in which the alice is considered part of the environment for bob.
     
     Args:
         env: OpenAI environment.
@@ -24,6 +24,9 @@ def reinforce(env, alice, bob, num_episodes,
         value_scale: vector of length num_episodes, or scalar
         discount_factor: time-discount factor
         max_episode_length: maximum number of time steps for an episode
+        bob_goal_access = 'immediate' -> z = +- 1 depending on goal
+                        = 'delayed' -> z = +- 1 once alice kl crosses .5; z = 0 before
+                        = None -> z produced by RNN applied to alice trajectory
     
     Returns:
         An EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
@@ -41,7 +44,7 @@ def reinforce(env, alice, bob, num_episodes,
                                episode_kls = np.zeros(num_episodes))
     bob_stats = EpisodeStats(episode_lengths = np.zeros(num_episodes),
                              episode_rewards = np.zeros(num_episodes),
-                             episode_kls = np.zeros(num_episodes))
+                             episode_kls = None)
     
     # each agent needs own copy of env
     alice_env = env
@@ -50,7 +53,11 @@ def reinforce(env, alice, bob, num_episodes,
     for i_episode in range(num_episodes):
       
         # occasional viz
-        if i_episode % viz_episode_every == 0: play(env, alice, bob, max_episode_length)
+        if i_episode % viz_episode_every == 0: play(env = env,
+                                                    alice = alice,
+                                                    bob = bob,
+                                                    max_episode_length = max_episode_length,
+                                                    bob_goal_access = bob_goal_access)
       
         # reset envs
         alice_state, goal = alice_env.reset()
@@ -84,9 +91,19 @@ def reinforce(env, alice, bob, num_episodes,
           
           # then bob takes a step
           if not bob_done:
-            bob_action_probs, bob_value = bob.predict(alice_states, alice_actions, bob_state)
+            if bob_goal_access is None:
+              bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
+                                                          obs_states = alice_states,
+                                                          obs_actions = alice_actions)
+              z = bob.get_z(alice_states, alice_actions, bob_state)
+            elif bob_goal_access == 'immediate':
+              if goal == 0: z = [-1]
+              elif goal == 1: z = [+1]
+              bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
+                                                           z = z)
+            elif bob_goal_access == 'delayed':
+              raise NotImplementedError('delayed goal access for bob not yet implemented')
             bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
-            z = bob.get_z(alice_states, alice_actions, bob_state)
             next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
             bob_stats.episode_rewards[i_episode] += bob_reward
             bob_stats.episode_lengths[i_episode] = t
@@ -117,12 +134,22 @@ def reinforce(env, alice, bob, num_episodes,
             # the advantage            
             advantage = total_return - transition.value
             # update bob
-            bob.update(transition.alice_states,
-                       transition.alice_actions,
-                       transition.state,
-                       transition.action,
-                       advantage,
-                       entropy_scale[i_episode],
-                       value_scale[i_episode])
+            if bob_goal_access is None: # provide alice trajectory
+              bob.update(state = transition.state,
+                         action = transition.action,
+                         target = advantage,
+                         entropy_scale = entropy_scale[i_episode],
+                         value_scale = value_scale[i_episode],
+                         obs_states = transition.alice_states,
+                         obs_actions = transition.alice_actions)
+            elif bob_goal_access == 'immediate': # provide static z
+              bob.update(state = transition.state,
+                         action = transition.action,
+                         target = advantage,
+                         entropy_scale = entropy_scale[i_episode],
+                         value_scale = value_scale[i_episode],
+                         z = z)
+            elif bob_goal_access == 'delayed': # provide dynamic z
+              raise NotImplementedError('delayed goal access for bob not yet implemented')
     
     return alice_stats, bob_stats

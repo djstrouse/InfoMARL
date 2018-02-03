@@ -1,7 +1,7 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'unregularized'
+experiment_name = 'small_positive'
 
 # justification for experiment
 '''
@@ -13,7 +13,7 @@ AgentParam = namedtuple('AgentParameters',
                        ['policy_learning_rate',
                         'value_learning_rate'])
 agent_param = AgentParam(policy_learning_rate = 0.025,
-                         value_learning_rate = 0.025)
+                         value_learning_rate = 0.0125)
 
 # REINFORCE training variables
 TrainingParam = namedtuple('TrainingParameters',
@@ -22,10 +22,10 @@ TrainingParam = namedtuple('TrainingParameters',
                            'beta',
                            'discount_factor',
                            'max_episode_length'])
-num_episodes = 1000
+num_episodes = 100000
 training_param = TrainingParam(num_episodes = num_episodes,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = 0,
+                               beta = .025,
                                discount_factor = .9,
                                max_episode_length = 100)
 
