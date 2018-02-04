@@ -8,40 +8,45 @@ import importlib
 import glob
 from collections import namedtuple
 from shutil import copy
-if "../" not in sys.path:
-  sys.path.append("../") 
+if "../" not in sys.path: sys.path.append("../") 
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
 from agents.bob import RNNObserver
 from training.REINFORCE_bob import reinforce
 from plotting.plot_episode_stats import *
 from plotting.visualize_grid_world import *
 import env_config
-import alice_config
 
 Result = namedtuple('Result', ['alice', 'bob'])
 Stats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
 
 def train_bob(config_extension = ''):
   
+  # import bob
   config = importlib.import_module('bob_config'+config_extension)
+  agent_param, training_param, experiment_name, alice_experiment = config.get_config()
+  
+  # import alice
+  results_directory = os.getcwd()+'/results/'
+  alice_directory = results_directory+alice_experiment+'/'
+  cwd = os.getcwd() # save cwd
+  sys.path.append('/results/'+alice_experiment) # move to alice_config directory
+  import alice_config # import alice 
+  os.chdir(cwd) # change back to original wd
+  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
 
-  # initialize experiment using config.py
+  # initialize experiment using configs
   tf.reset_default_graph()
   global_step = tf.Variable(0, name = "global_step", trainable = False)
   env_param, _ = env_config.get_config()
-  agent_param, training_param, experiment_name = config.get_config()
   env = TwoGoalGridWorld(env_param.shape,
                          env_param.r_correct,
                          env_param.r_incorrect,
                          env_param.r_step,
                          env_param.goal_locs,
                          env_param.goal_dist)
-
-  with tf.variable_scope('alice'):
-    alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
+  with tf.variable_scope('alice'):  
     alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
     alice_saver = tf.train.Saver()
-
   with tf.variable_scope('bob'):
     bob = RNNObserver(env = env,
                       policy_layer_sizes = agent_param.policy_layer_sizes,
@@ -53,7 +58,7 @@ def train_bob(config_extension = ''):
   # run experiment
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    alice_saver.restore(sess, 'alice.ckpt')
+    alice_saver.restore(sess, alice_directory+'alice.ckpt')
     alice_stats, bob_stats = reinforce(env, alice, bob,
                                        num_episodes = training_param.num_episodes,
                                        entropy_scale = training_param.entropy_scale,
@@ -62,7 +67,6 @@ def train_bob(config_extension = ''):
                                        max_episode_length = training_param.max_episode_length,
                                        bob_goal_access = training_param.bob_goal_access)
     # save session
-    results_directory = os.getcwd()+'/results/'
     experiment_directory = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")+'_'+experiment_name+'/'
     directory = results_directory + experiment_directory
     if not os.path.exists(directory+'bob/'): os.makedirs(directory+'bob/')
@@ -82,8 +86,8 @@ def train_bob(config_extension = ''):
   
   # copy config file to results directory to ensure experiment repeatable
   copy(os.getcwd()+'/bob_config.py', directory)
-  copy(os.getcwd()+'/alice_config.py', directory)
   copy(os.getcwd()+'/env_config.py', directory)
+  copy(alice_directory+'alice_config.py', directory)
   
   # copy alice checkpoint used
   if not os.path.exists(directory+'alice/'): os.makedirs(directory+'alice/')
