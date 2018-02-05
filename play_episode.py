@@ -1,6 +1,55 @@
 import itertools
 import copy
+import os
+import sys
+import tensorflow as tf
 import numpy as np
+from envs.TwoGoalGridWorld import TwoGoalGridWorld
+from agents.bob import RNNObserver
+from agents.alice import PolicyEstimator
+
+def play_from_directory(experiment_name):
+  
+  cwd = os.getcwd()
+  directory = cwd+'/results/'+experiment_name+'/'
+  sys.path.append('/results/'+experiment_name)
+  
+  # import configs
+  import alice_config
+  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
+  import env_config
+  env_param, _ = env_config.get_config()
+  import bob_config
+  agent_param, training_param, experiment_name, alice_experiment = bob_config.get_config()
+
+  # initialize experiment using configs
+  tf.reset_default_graph()
+  #global_step = tf.Variable(0, name = "global_step", trainable = False)
+  env = TwoGoalGridWorld(env_param.shape,
+                         env_param.r_correct,
+                         env_param.r_incorrect,
+                         env_param.r_step,
+                         env_param.goal_locs,
+                         env_param.goal_dist)
+  with tf.variable_scope('alice'):  
+    alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
+    #alice_saver = tf.train.Saver()
+  with tf.variable_scope('bob'):
+    bob = RNNObserver(env = env,
+                      policy_layer_sizes = agent_param.policy_layer_sizes,
+                      value_layer_sizes = agent_param.value_layer_sizes,
+                      learning_rate = agent_param.learning_rate,
+                      use_RNN = agent_param.use_RNN)
+    bob_saver = tf.train.Saver()
+     
+  # simulate an episode
+  with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    #alice_saver.restore(sess, directory+'alice/alice.ckpt')
+    bob_saver.restore(sess, directory+'bob/bob.ckpt')
+    play(env, alice, bob)
+    
+  return
 
 def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
   
@@ -51,7 +100,8 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     # draw env with alice step
     if draw_alice:
       alice_env._render(bob_state = bob_state)
-      print('alice step %i: reward = %i, total kl = %.2f' % (t, alice_total_reward, alice_total_kl))
+      print('alice step %i: reward = %i, total kl = %.2f, action: %s' %
+            (t, alice_total_reward, alice_total_kl, env.index_to_action[alice_action]))
       print('')
       if alice_done: draw_alice = False # only draw alice step first step after done
       
@@ -80,7 +130,8 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     if draw_bob:
       alice_env._render(bob_state = next_bob_state)
       if bob_goal_access is not None: z = z[0]
-      print('bob step %i: reward = %i, rnn latent = %.2f' % (t, bob_total_reward, z))
+      print('bob step %i: reward = %i, rnn latent = %.2f, action: %s' %
+            (t, bob_total_reward, z, env.index_to_action[bob_action]))
       print('policy: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
             (bob_action_probs[env.action_to_index['LEFT']],
              bob_action_probs[env.action_to_index['UP']],
@@ -102,4 +153,7 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     bob_state = next_bob_state
     
   #bob.print_trainable()
+  
+if __name__ == "__main__":
+  play_from_directory('2018_02_04_0050_bob_with_cooperative_alice_5x5')
   
