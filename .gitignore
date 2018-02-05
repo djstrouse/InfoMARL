@@ -18,3 +18,4 @@ checkpoint
 
 # ignore hacky stuff
 train_many_alices.py
+train_many_bobs.py

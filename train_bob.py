@@ -11,6 +11,7 @@ from shutil import copy
 if "../" not in sys.path: sys.path.append("../") 
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
 from agents.bob import RNNObserver
+from agents.alice import PolicyEstimator
 from training.REINFORCE_bob import reinforce
 from plotting.plot_episode_stats import *
 from plotting.visualize_grid_world import *
@@ -91,8 +92,9 @@ def train_bob(config_extension = ''):
   
   # copy alice checkpoint used
   if not os.path.exists(directory+'alice/'): os.makedirs(directory+'alice/')
-  for file in glob.glob(os.getcwd()+'/alice.ckpt*'): copy(file, directory+'alice/')
-  copy(os.getcwd()+'/checkpoint', directory+'alice/')
+  for file in glob.glob(alice_directory+'alice.ckpt*'):
+    copy(file, directory+'alice/')
+  copy(alice_directory+'checkpoint', directory+'alice/')
       
   # plot experiment and save figures
   FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
