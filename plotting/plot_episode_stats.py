@@ -59,7 +59,7 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     if noshow: plt.close(fig4)
     else: plt.show(fig4)
     
-    if stats.episode_kls:
+    if stats.episode_kls is not None:
       # Plot a rolling estimate of I(action;goal|state)
       smoothing_window = 500
       fig5 = plt.figure(figsize = figure_sizes.figure)
