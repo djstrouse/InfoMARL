@@ -5,9 +5,11 @@ Here we use information regularization to promote cooperation / competition via 
 TODOS:
 *	make richer episode visualization
 *	add alice stats to multi-experiment plots
-*	alter train_bob to take file path to alice
 
 OPTIONAL:
+*	lossy case
+*	learn friend/foe policies and optimize mixture parameter
+*	learn pi(beta) and optimize beta
 *	try discounting kl / entropy into future (like Distral paper); for high enough beta, Alice should try not to terminate episodes
 *	under what conditions might Alice "overshoot" to signal?
 *	under what conditions are I(traj;goal) and I(action;goal|state) approx equal?
