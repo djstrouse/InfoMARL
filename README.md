@@ -5,9 +5,11 @@ Here we use information regularization to promote cooperation / competition via 
 TODOS:
 *	make richer episode visualization
 *	add alice stats to multi-experiment plots
+*	add multiple runs for each beta setting on multi-experiment plots
+*	get 4x4 and 5x5 cases working
 
 OPTIONAL:
-*	lossy case
+*	find a lossy case
 *	learn friend/foe policies and optimize mixture parameter
 *	learn pi(beta) and optimize beta
 *	try discounting kl / entropy into future (like Distral paper); for high enough beta, Alice should try not to terminate episodes
