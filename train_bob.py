@@ -22,9 +22,13 @@ Stats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'
 
 def train_bob(config_extension = ''):
   
+  # import env
+  env_param, experiment_name_ext = env_config.get_config()
+  
   # import bob
   config = importlib.import_module('bob_config'+config_extension)
   agent_param, training_param, experiment_name, alice_experiment = config.get_config()
+  experiment_name += experiment_name_ext
   
   # import alice
   results_directory = os.getcwd()+'/results/'
@@ -38,7 +42,6 @@ def train_bob(config_extension = ''):
   # initialize experiment using configs
   tf.reset_default_graph()
   global_step = tf.Variable(0, name = "global_step", trainable = False)
-  env_param, _ = env_config.get_config()
   env = TwoGoalGridWorld(env_param.shape,
                          env_param.r_correct,
                          env_param.r_incorrect,
@@ -86,7 +89,7 @@ def train_bob(config_extension = ''):
     pickle.dump(Result(alice = a, bob = b), output, pickle.HIGHEST_PROTOCOL)
   
   # copy config file to results directory to ensure experiment repeatable
-  copy(os.getcwd()+'/bob_config.py', directory)
+  copy(os.getcwd()+'/bob_config'+config_extension+'.py', directory+'bob_config.py')
   copy(os.getcwd()+'/env_config.py', directory)
   copy(alice_directory+'alice_config.py', directory)
   
