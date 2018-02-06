@@ -15,6 +15,7 @@ checkpoint
 !alice_config.py
 !bob_config.py
 !env_config.py
+!auto_config.py
 
 # ignore hacky stuff
 train_many_alices.py
