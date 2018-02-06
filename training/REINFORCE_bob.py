@@ -6,7 +6,7 @@ from play_episode import play
 
 EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
 Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'state',
-                                           'value', 'action', 'reward'])
+                                           'value', 'action', 'reward', 'z'])
 
 def reinforce(env, alice, bob, num_episodes,
               entropy_scale, value_scale, discount_factor,
@@ -25,7 +25,7 @@ def reinforce(env, alice, bob, num_episodes,
         discount_factor: time-discount factor
         max_episode_length: maximum number of time steps for an episode
         bob_goal_access = 'immediate' -> z = +- 1 depending on goal
-                        = 'delayed' -> z = +- 1 once alice kl crosses .5; z = 0 before
+                        = 'delayed' -> z = +- 1 once alice kl crosses kl_thresh; z = 0 before
                         = None -> z produced by RNN applied to alice trajectory
     
     Returns:
@@ -102,7 +102,14 @@ def reinforce(env, alice, bob, num_episodes,
               bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
                                                            z = z)
             elif bob_goal_access == 'delayed':
-              raise NotImplementedError('delayed goal access for bob not yet implemented')
+              kl_thresh = .8
+              if alice_stats.episode_kls[i_episode]>kl_thresh:
+                if goal == 0: z = [-1]
+                elif goal == 1: z = [+1]
+              else:
+                z = [0]
+              bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
+                                                           z = z)
             bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
             next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
             bob_stats.episode_rewards[i_episode] += bob_reward
@@ -113,7 +120,8 @@ def reinforce(env, alice, bob, num_episodes,
                                             state = bob_state,
                                             value = bob_value,
                                             action = bob_action,
-                                            reward = bob_reward))
+                                            reward = bob_reward,
+                                            z = z))
           else: # if done, sit still
             bob_next_state = bob_state
           
@@ -150,6 +158,11 @@ def reinforce(env, alice, bob, num_episodes,
                          value_scale = value_scale[i_episode],
                          z = z)
             elif bob_goal_access == 'delayed': # provide dynamic z
-              raise NotImplementedError('delayed goal access for bob not yet implemented')
+              bob.update(state = transition.state,
+                         action = transition.action,
+                         target = advantage,
+                         entropy_scale = entropy_scale[i_episode],
+                         value_scale = value_scale[i_episode],
+                         z = transition.z)
     
     return alice_stats, bob_stats
