@@ -5,10 +5,15 @@ Here we use information regularization to promote cooperation / competition via 
 TODOS:
 *	make richer episode visualization
 *	add alice stats to multi-experiment plots
-*	add multiple runs for each beta setting on multi-experiment plots
 *	get 4x4 and 5x5 cases working
 
-OPTIONAL:
+TROUBLESHOOTING:
+*	shared layers for bob's policy and value heads
+*	kernel / bias / activity regularizers for bob
+*	check for dead neurons in Bob and think about resurrection procedure
+
+ADDITIONAL EXPERIMENTS:
+*	use I(t) = sum of info up until t, so that agent prefers revealing info later
 *	find a lossy case
 *	learn friend/foe policies and optimize mixture parameter
 *	learn pi(beta) and optimize beta
