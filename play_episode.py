@@ -12,7 +12,8 @@ def play_from_directory(experiment_name):
   
   cwd = os.getcwd()
   directory = cwd+'/results/'+experiment_name+'/'
-  sys.path.append('/results/'+experiment_name)
+  os.chdir(directory)
+  #sys.path.append('/results/'+experiment_name)
   
   # import configs
   import alice_config
@@ -47,7 +48,9 @@ def play_from_directory(experiment_name):
     sess.run(tf.global_variables_initializer())
     #alice_saver.restore(sess, directory+'alice/alice.ckpt')
     bob_saver.restore(sess, directory+'bob/bob.ckpt')
-    play(env, alice, bob)
+    play(env, alice, bob, bob_goal_access = training_param.bob_goal_access)
+    
+  os.chdir(cwd)
     
   return
 
@@ -118,7 +121,14 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
         bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
                                                           z = z)
       elif bob_goal_access == 'delayed':
-        raise NotImplementedError('delayed goal access for bob not yet implemented')
+        kl_thresh = .8
+        if alice_total_kl>kl_thresh:
+          if goal == 0: z = [-1]
+          elif goal == 1: z = [+1]
+        else:
+          z = [0]
+        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
+                                                          z = z)
       bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
       next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
       bob_total_reward += bob_reward
@@ -155,5 +165,5 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
   #bob.print_trainable()
   
 if __name__ == "__main__":
-  play_from_directory('2018_02_04_0050_bob_with_cooperative_alice_5x5')
+  play_from_directory('2018_02_06_1847_bob_with_cooperative_alice_delayed_goal_64_3x3')
   
