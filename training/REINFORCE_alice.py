@@ -31,12 +31,13 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
     beta = [beta]*training_steps
 
   # Keeps track of useful statistics
-  stats = EpisodeStats(episode_lengths = np.zeros(num_episodes),
-                       episode_rewards = np.zeros(num_episodes),
-                       episode_kls = np.zeros(num_episodes)) 
+  stats = EpisodeStats(episode_lengths = [],
+                       episode_rewards = [],
+                       episode_kls = []) 
 
   # count total steps
-  step_count = 0   
+  step_count = 0
+  last_episode_reward = 0   
   
   # iterate over episodes
   for i in itertools.count(start = 0):
@@ -72,8 +73,8 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
       total_kl += kl
       
       # Print out which step we're on, useful for debugging.
-      print("\rStep {} @ Episode {}/{} ({})".format(
-              t, i_episode + 1, num_episodes, stats.episode_rewards[i_episode - 1]), end="")
+      print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
+              step_count, training_steps, last_episode_reward, t, i+1), end="")
       # sys.stdout.flush()
 
       if done or t > max_episode_length: break
@@ -84,6 +85,7 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
     stats.episode_rewards.append(total_reward)
     stats.episode_lengths.append(episode_length)
     stats.episode_kls.append(total_kl)
+    last_episode_reward = total_reward
 
     # Go through the episode and make policy updates
     for t, transition in enumerate(episode):

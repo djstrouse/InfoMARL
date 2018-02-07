@@ -52,6 +52,7 @@ def reinforce(env, alice, bob, training_steps,
   
   # count total steps
   step_count = 0
+  last_bob_reward = 0
   
   # each agent needs own copy of env
   alice_env = env
@@ -144,8 +145,8 @@ def reinforce(env, alice, bob, training_steps,
         bob_next_state = bob_state
       
       # print out which step we're on, useful for debugging.
-      print("\rStep {} @ Episode {}/{} ({})".format(
-            t, i_episode + 1, num_episodes, bob_stats.episode_rewards[i_episode - 1]), end="")
+      print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
+              step_count, training_steps, last_bob_reward, t, i+1), end="")
       # sys.stdout.flush()
   
       # check if episode over
@@ -168,6 +169,7 @@ def reinforce(env, alice, bob, training_steps,
     alice_stats.episode_kls.append(total_kl)
     bob_stats.episode_rewards.append(bob_total_reward)
     bob_stats.episode_lengths.append(bob_episode_length)
+    last_bob_reward = bob_total_reward
   
     # go through the episode and make policy updates
     for t, transition in enumerate(bob_episode):
