@@ -36,7 +36,7 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     fig3 = plt.figure(figsize = figure_sizes.figure) 
     cumulative_steps = np.cumsum(stats.episode_lengths)
     cumulative_rewards = np.cumsum(stats.episode_rewards)
-    plt.plot(cumulative_steps, cumulative_rewards)
+    plt.plot(cumulative_steps, cumulative_rewards, linewidth = 8)
     plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
     plt.ylabel("Total Reward", fontsize = figure_sizes.axis_label)
     rate_per_what = 100
@@ -56,10 +56,10 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     
     # Plot time steps and episode number
     fig4 = plt.figure(figsize = figure_sizes.figure)
-    plt.plot(cumulative_steps, np.arange(len(stats.episode_lengths)))
+    plt.plot(cumulative_steps, np.arange(len(stats.episode_lengths)), linewidth = 8)
     plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
     plt.ylabel("Episode", fontsize = figure_sizes.axis_label)
-    plt.title("Episode per time step", fontsize = figure_sizes.title)
+    plt.title("Episodes per time step", fontsize = figure_sizes.title)
     plt.tick_params(labelsize = figure_sizes.tick_label)
     if directory:
       plt.savefig(directory+'episodes_per_timestep.eps', format='eps')
