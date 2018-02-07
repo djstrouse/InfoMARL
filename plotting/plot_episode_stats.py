@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from util.stats import rate_last_N
 
 def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = False, directory = None):
     # Plot the episode length over time
@@ -33,10 +34,18 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     else: plt.show(fig2)
     
     fig3 = plt.figure(figsize = figure_sizes.figure) 
-    plt.plot(np.cumsum(stats.episode_lengths), np.cumsum(stats.episode_rewards))
+    cumulative_steps = np.cumsum(stats.episode_lengths)
+    cumulative_rewards = np.cumsum(stats.episode_rewards)
+    plt.plot(cumulative_steps, cumulative_rewards)
     plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
     plt.ylabel("Total Reward", fontsize = figure_sizes.axis_label)
-    plt.title("Total Reward over Time", fontsize = figure_sizes.title)
+    rate_per_what = 100
+    r1 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = 1000)
+    r2 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = 10000)
+    r3 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = 25000)
+    plt.title("Reward per %i steps: %i (last 1k), %i (last 10k), %i (last 25k)" %
+               (rate_per_what, r1, r2, r3),
+              fontsize = figure_sizes.title)
     plt.tick_params(labelsize = figure_sizes.tick_label)
     if directory:
       plt.savefig(directory+'reward_per_timestep.eps', format='eps')
