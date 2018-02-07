@@ -44,7 +44,7 @@ def train_alice(alice_config_ext = '', env_config_ext = ''):
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     stats = reinforce(env, policy_estimator, value_estimator,
-                      num_episodes = training_param.num_episodes,
+                      training_steps = training_param.training_steps,
                       entropy_scale = training_param.entropy_scale,
                       beta = training_param.beta,
                       discount_factor = training_param.discount_factor,

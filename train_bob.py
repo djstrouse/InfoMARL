@@ -22,8 +22,14 @@ Stats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'
 
 def train_bob(config_extension = ''):
   
-  # import env
+  # import and init env
   env_param, experiment_name_ext = env_config.get_config()
+  env = TwoGoalGridWorld(env_param.shape,
+                         env_param.r_correct,
+                         env_param.r_incorrect,
+                         env_param.r_step,
+                         env_param.goal_locs,
+                         env_param.goal_dist)
   
   # import bob
   config = importlib.import_module('bob_config'+config_extension)
@@ -39,42 +45,46 @@ def train_bob(config_extension = ''):
   os.chdir(cwd) # change back to original wd
   alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
 
-  # initialize experiment using configs
-  tf.reset_default_graph()
-  global_step = tf.Variable(0, name = "global_step", trainable = False)
-  env = TwoGoalGridWorld(env_param.shape,
-                         env_param.r_correct,
-                         env_param.r_incorrect,
-                         env_param.r_step,
-                         env_param.goal_locs,
-                         env_param.goal_dist)
-  with tf.variable_scope('alice'):  
-    alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
-    alice_saver = tf.train.Saver()
-  with tf.variable_scope('bob'):
-    bob = RNNObserver(env = env,
-                      policy_layer_sizes = agent_param.policy_layer_sizes,
-                      value_layer_sizes = agent_param.value_layer_sizes,
-                      learning_rate = agent_param.learning_rate,
-                      use_RNN = agent_param.use_RNN)
-    saver = tf.train.Saver()
+  # run training, and if nans, creep in, train again until they don't
+  success = False
+  while not success:
+
+    # initialize alice and bob using configs
+    tf.reset_default_graph()
+    #global_step = tf.Variable(0, name = "global_step", trainable = False)    
+    with tf.variable_scope('alice'):  
+      alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
+      alice_saver = tf.train.Saver()
+    with tf.variable_scope('bob'):
+      bob = RNNObserver(env = env,
+                        policy_layer_sizes = agent_param.policy_layer_sizes,
+                        value_layer_sizes = agent_param.value_layer_sizes,
+                        learning_rate = agent_param.learning_rate,
+                        use_RNN = agent_param.use_RNN)
+      saver = tf.train.Saver()
   
-  # run experiment
-  with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    alice_saver.restore(sess, alice_directory+'alice.ckpt')
-    alice_stats, bob_stats = reinforce(env, alice, bob,
-                                       num_episodes = training_param.num_episodes,
-                                       entropy_scale = training_param.entropy_scale,
-                                       value_scale = training_param.value_scale,
-                                       discount_factor = training_param.discount_factor,
-                                       max_episode_length = training_param.max_episode_length,
-                                       bob_goal_access = training_param.bob_goal_access)
-    # save session
-    experiment_directory = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")+'_'+experiment_name+'/'
-    directory = results_directory + experiment_directory
-    if not os.path.exists(directory+'bob/'): os.makedirs(directory+'bob/')
-    save_path = saver.save(sess, directory+'bob/bob.ckpt')
+    # run experiment
+    with tf.Session() as sess:
+      sess.run(tf.global_variables_initializer())
+      alice_saver.restore(sess, alice_directory+'alice.ckpt')
+      alice_stats, bob_stats, success = reinforce(env, alice, bob,
+                                                  training_steps = training_param.training_steps,
+                                                  entropy_scale = training_param.entropy_scale,
+                                                  value_scale = training_param.value_scale,
+                                                  discount_factor = training_param.discount_factor,
+                                                  max_episode_length = training_param.max_episode_length,
+                                                  bob_goal_access = training_param.bob_goal_access)
+      if success:
+        # save session
+        experiment_directory = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")+'_'+experiment_name+'/'
+        directory = results_directory + experiment_directory
+        if not os.path.exists(directory+'bob/'): os.makedirs(directory+'bob/')
+        save_path = saver.save(sess, directory+'bob/bob.ckpt')
+      else:
+        f = open('error.txt','w')
+        d = datetime.datetime.now().strftime("%A, %B %d, %I:%M %p")
+        f.write("{}: experiment '{}' failed and reran\n".format(d, experiment_name))
+        f.close()
   
   # save experiment stats
   if not os.path.exists(directory): os.makedirs(directory)

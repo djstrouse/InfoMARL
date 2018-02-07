@@ -1,11 +1,11 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'small_positive'
+experiment_name = 'unregularized_ambivalent'
 
 # justification for experiment
 '''
-repeating best param several times
+training alice on 4x4
 '''
 
 # TabularREINFORCE agent variables
@@ -17,16 +17,16 @@ agent_param = AgentParam(policy_learning_rate = 0.025,
 
 # REINFORCE training variables
 TrainingParam = namedtuple('TrainingParameters',
-                          ['num_episodes',
+                          ['training_steps',
                            'entropy_scale',
                            'beta',
                            'discount_factor',
                            'max_episode_length'])
-num_episodes = 100000
-training_param = TrainingParam(num_episodes = num_episodes,
+training_steps = 400000
+training_param = TrainingParam(training_steps = training_steps,
                                entropy_scale = log_decay(.5, .005, num_episodes),
-                               beta = .025,
-                               discount_factor = .9,
+                               beta = 0,
+                               discount_factor = .85,
                                max_episode_length = 100)
 
 def get_config():
