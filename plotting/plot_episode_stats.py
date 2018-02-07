@@ -56,7 +56,7 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     
     # Plot time steps and episode number
     fig4 = plt.figure(figsize = figure_sizes.figure)
-    plt.plot(np.cumsum(stats.episode_lengths), np.arange(len(stats.episode_lengths)))
+    plt.plot(cumulative_steps, np.arange(len(stats.episode_lengths)))
     plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
     plt.ylabel("Episode", fontsize = figure_sizes.axis_label)
     plt.title("Episode per time step", fontsize = figure_sizes.title)
@@ -70,11 +70,11 @@ def plot_episode_stats(stats, figure_sizes, smoothing_window = 10, noshow = Fals
     
     if stats.episode_kls is not None:
       # Plot a rolling estimate of I(action;goal|state)
-      smoothing_window = 500
+      smoothing_window = 500 # measure in episodes
       fig5 = plt.figure(figsize = figure_sizes.figure)
       info_smoothed = pd.Series(stats.episode_kls/stats.episode_lengths).rolling(smoothing_window, min_periods = smoothing_window).mean()
-      plt.plot(info_smoothed)
-      plt.xlabel("Episode", fontsize = figure_sizes.axis_label)
+      plt.plot(cumulative_steps, info_smoothed)
+      plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
       plt.ylabel("I(action;goal|state)", fontsize = figure_sizes.axis_label)
       plt.title("Info estimated over sliding window of {} episodes".format(smoothing_window), fontsize = figure_sizes.title)
       plt.tick_params(labelsize = figure_sizes.tick_label)
