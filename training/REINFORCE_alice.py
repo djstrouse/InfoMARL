@@ -26,9 +26,9 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
   
   # this allows one to set params to scalars when not wanting to anneal them
   if not isinstance(entropy_scale, (list, np.ndarray)):
-    entropy_scale = [entropy_scale]*num_episodes
+    entropy_scale = [entropy_scale]*training_steps
   if not isinstance(beta, (list, np.ndarray)):
-    beta = [beta]*num_episodes
+    beta = [beta]*training_steps
 
   # Keeps track of useful statistics
   stats = EpisodeStats(episode_lengths = np.zeros(num_episodes),
@@ -40,6 +40,9 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
   
   # iterate over episodes
   for i in itertools.count(start = 0):
+    
+    this_entropy_scale = entropy_scale[step_count]
+    this_beta = beta[step_count]
     
     # Reset the environment and pick the first action
     state, goal = env.reset()
@@ -96,8 +99,8 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
                               goal,
                               advantage,
                               transition.action,
-                              entropy_scale[i_episode],
-                              beta[i_episode])
+                              this_entropy_scale,
+                              this_beta)
       
     # if exceeded number of steps to train for, quit
     if step_count >= training_steps: break

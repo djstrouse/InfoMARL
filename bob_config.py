@@ -33,7 +33,7 @@ TrainingParam = namedtuple('TrainingParameters',
                            'bob_goal_access'])
 training_steps = 1000000 # 1M
 training_param = TrainingParam(training_steps = training_steps,
-                               entropy_scale = log_decay(.5, .01, num_episodes),
+                               entropy_scale = log_decay(.5, .01, training_steps),
                                value_scale = .5,
                                discount_factor = .8,
                                max_episode_length = 100,

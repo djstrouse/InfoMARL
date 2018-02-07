@@ -1,11 +1,11 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'unregularized_ambivalent'
+experiment_name = 'alice_unregularized_ambivalent'
 
 # justification for experiment
 '''
-training alice on 4x4
+retraining alice on 3x3 since i updated plotting tools and changed exp length to time steps
 '''
 
 # TabularREINFORCE agent variables
@@ -24,9 +24,9 @@ TrainingParam = namedtuple('TrainingParameters',
                            'max_episode_length'])
 training_steps = 400000
 training_param = TrainingParam(training_steps = training_steps,
-                               entropy_scale = log_decay(.5, .005, num_episodes),
+                               entropy_scale = log_decay(.5, .005, training_steps),
                                beta = 0,
-                               discount_factor = .85,
+                               discount_factor = .8,
                                max_episode_length = 100)
 
 def get_config():

@@ -34,9 +34,9 @@ def reinforce(env, alice, bob, training_steps,
   
   # this allows one to set params to scalars when not wanting to anneal them
   if not isinstance(entropy_scale, (list, np.ndarray)):
-    entropy_scale = [entropy_scale]*num_episodes
+    entropy_scale = [entropy_scale]*training_steps
   if not isinstance(value_scale, (list, np.ndarray)):
-    value_scale = [value_scale]*num_episodes
+    value_scale = [value_scale]*training_steps
 
   # flag that tells caller of function whether or not the run had to exit early
   #   due to nans; useful for triggering retraining with new init
@@ -59,6 +59,9 @@ def reinforce(env, alice, bob, training_steps,
   
   # iterate over episodes
   for i in itertools.count(start = 0):
+    
+    this_entropy_scale = entropy_scale[step_count]
+    this_value_scale = value_scale[step_count]
     
     # occasional viz
     if i % viz_episode_every == 0: play(env = env,
@@ -177,23 +180,23 @@ def reinforce(env, alice, bob, training_steps,
         bob.update(state = transition.state,
                    action = transition.action,
                    target = advantage,
-                   entropy_scale = entropy_scale[i_episode],
-                   value_scale = value_scale[i_episode],
+                   entropy_scale = this_entropy_scale,
+                   value_scale = this_value_scale,
                    obs_states = transition.alice_states,
                    obs_actions = transition.alice_actions)
       elif bob_goal_access == 'immediate': # provide static z
         bob.update(state = transition.state,
                    action = transition.action,
                    target = advantage,
-                   entropy_scale = entropy_scale[i_episode],
-                   value_scale = value_scale[i_episode],
+                   entropy_scale = this_entropy_scale,
+                   value_scale = this_value_scale,
                    z = z)
       elif bob_goal_access == 'delayed': # provide dynamic z
         bob.update(state = transition.state,
                    action = transition.action,
                    target = advantage,
-                   entropy_scale = entropy_scale[i_episode],
-                   value_scale = value_scale[i_episode],
+                   entropy_scale = this_entropy_scale,
+                   value_scale = this_value_scale,
                    z = transition.z)
     
     # if exceeded number of steps to train for, quit
