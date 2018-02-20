@@ -10,7 +10,7 @@ Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'sta
 
 def reinforce(env, alice, bob, training_steps,
               entropy_scale, value_scale, discount_factor,
-              max_episode_length, bob_goal_access = None, viz_episode_every = 100):
+              max_episode_length, bob_goal_access = None, viz_episode_every = 500):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
   in which the alice is considered part of the environment for bob.
