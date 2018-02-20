@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from collections import namedtuple
-from util.stats import rate_last_N
+os.chdir("..")
+from util.stats import rate_last_N, first_time_to
 
 FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
 
@@ -36,12 +37,13 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
         break
     if not color_found: raise ValueError('No names in exp_names_and_colors appeared in {}'.format(d))
     
-  # plot them and write reward rates to text file
+  # plot rewards vs time and write reward rates to text file
   rate_per_what = 100
   f = open(os.getcwd()+'/results/'+collection_name+'_reward_per_timestep.txt','w')
   f.write('REWARD RATES PER %i TIME STEPS\n' % rate_per_what)
-  fig = plt.figure(figsize = figure_sizes.figure)
-  total_steps = []
+  fig1 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  f.write("***** BOB *****\n")
   for n in range(len(results)):
     r = results[n]
     c = colors[n]
@@ -50,18 +52,26 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
     cumulative_steps = np.cumsum(r.bob.episode_lengths)
     cumulative_rewards = np.cumsum(r.bob.episode_rewards)
     plt.plot(cumulative_steps, cumulative_rewards,
-             color = c, label = l, linewidth = 8)
-    total_steps.append(np.sum(r.bob.episode_lengths))
+             color = c, linestyle = '-', label = l, linewidth = 8)
     # write reward rates to text file
-    N1 = 1000
-    N2 = 10000
-    N3 = 25000
-    rate1 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = N1)
-    rate2 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = N2)
-    rate3 = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = N3)
-    f.write("'%s': %i (last %i steps), %i (last %i steps) %i (last %i steps)\n"
-            % (d, rate1, N1, rate2, N2, rate3, N3))
-    
+    N = 10000
+    rate = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = N)
+    f.write("'%s': %i (last %i steps)\n" % (d, rate, N))
+  # plot alice
+  f.write("***** ALICE *****\n")
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    cumulative_steps = np.cumsum(r.alice.episode_lengths)
+    cumulative_rewards = np.cumsum(r.alice.episode_rewards)
+    plt.plot(cumulative_steps, cumulative_rewards,
+             color = c, linestyle = '--', label = None, linewidth = 8)
+    # write reward rates to text file
+    N = 10000
+    rate = rate_per_what*rate_last_N(cumulative_steps, cumulative_rewards, N = N)
+    f.write("'%s': %i (last %i steps)\n" % (d, rate, N))
   plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
   plt.ylabel("Total Reward", fontsize = figure_sizes.axis_label)
   #plt.xlim((0, np.min(total_steps)))
@@ -72,11 +82,75 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_reward_per_timestep.eps', format='eps')
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_reward_per_timestep.pdf', format='pdf')
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_reward_per_timestep.png', format='png')
-  plt.close(fig)
+  plt.close(fig1)
   
-  f = open(os.getcwd()+'/results/'+collection_name+'_reward_per_timestep.txt','w')
-  f.write("{}: experiment '{}' failed and reran".format(d, experiment_name))
-  f.close()
+  # plot smoothed episode lengths over time
+  window = 1000
+  fig2 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    episode_lengths_smoothed = pd.Series(r.bob.episode_lengths).rolling(window, min_periods = window).mean()
+    plt.plot(episode_lengths_smoothed,
+             color = c, linestyle = '-', label = l, linewidth = 8)
+  # plot alice
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    average_episode_length = np.mean(r.alice.episode_lengths)
+    plt.axhline(y = average_episode_length,
+                color = c, linestyle = '--', label = None, linewidth = 8)
+  plt.xlabel("Episode", fontsize = figure_sizes.axis_label)
+  plt.ylabel("Episode Length", fontsize = figure_sizes.axis_label)
+  plt.title("Episode Length over Time (Smoothed over {} episodes)".format(window), fontsize = figure_sizes.title)
+  #plt.xlim((0, np.min(total_steps)))
+  plt.ylim(ymin = 0)
+  plt.legend(loc = 'upper right', fontsize = figure_sizes.axis_label)
+  plt.tick_params(labelsize = figure_sizes.tick_label)  
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_smoothed_episode_lengths.eps', format='eps')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_smoothed_episode_lengths.pdf', format='pdf')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_smoothed_episode_lengths.png', format='png')
+  plt.close(fig2)  
+  
+  # Plot time steps per unit reward (smoothed)
+  window = 1000
+  fig3 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    total_steps, steps_per_reward = first_time_to(r.bob.episode_lengths, r.bob.episode_rewards)
+    steps_per_reward_smoothed = pd.Series(steps_per_reward).rolling(window, min_periods = window).mean()
+    plt.plot(total_steps, steps_per_reward_smoothed,
+             color = c, linestyle = '-', label = l, linewidth = 8)
+  # plot alice
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    average_steps_per_reward = np.sum(r.alice.episode_lengths)/np.sum(r.alice.episode_rewards)
+    plt.axhline(y = average_steps_per_reward,
+                color = c, linestyle = '--', label = None, linewidth = 8)
+  plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+  plt.ylabel("Time Steps per Reward", fontsize = figure_sizes.axis_label)
+  plt.title("Steps per Reward over Time (Smoothed over approximately {} episodes)".format(window), fontsize = figure_sizes.title) 
+  #plt.xlim((0, np.min(total_steps)))
+  _, ymax = plt.gca().get_ylim()
+  plt.ylim(0, min(6*average_steps_per_reward,ymax))
+  plt.legend(loc = 'upper right', fontsize = figure_sizes.axis_label)
+  plt.tick_params(labelsize = figure_sizes.tick_label)  
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.eps', format='eps')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.pdf', format='pdf')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.png', format='png')
+  plt.close(fig3)  
   
   return
   
@@ -86,43 +160,13 @@ if __name__ == "__main__":
                              tick_label = 40,
                              axis_label = 50,
                              title = 60)
-#  list_of_directories = ['2018_02_06_0018_bob_with_cooperative_alice_32_3x3',
-#                         '2018_02_06_0103_bob_with_ambivalent_alice_32_3x3',
-#                         '2018_02_06_0041_bob_with_competitive_alice_32_3x3',
-#                         '2018_02_06_0123_bob_with_cooperative_alice_32_3x3',
-#                         '2018_02_06_0146_bob_with_competitive_alice_32_3x3',
-#                         '2018_02_06_0207_bob_with_ambivalent_alice_32_3x3',
-#                         '2018_02_06_0228_bob_with_cooperative_alice_32_3x3',
-#                         '2018_02_06_0252_bob_with_competitive_alice_32_3x3',
-#                         '2018_02_06_0317_bob_with_ambivalent_alice_32_3x3']
-#  list_of_directories = ['2018_02_06_1255_bob_with_cooperative_alice_64_3x3',
-#                         '2018_02_06_1336_bob_with_ambivalent_alice_64_3x3',
-#                         '2018_02_06_1316_bob_with_competitive_alice_64_3x3',
-#                         '2018_02_06_1354_bob_with_cooperative_alice_64_3x3',
-#                         '2018_02_06_1425_bob_with_competitive_alice_64_3x3',
-#                         '2018_02_06_1446_bob_with_ambivalent_alice_64_3x3',
-#                         '2018_02_06_1507_bob_with_cooperative_alice_64_3x3',
-#                         '2018_02_06_1528_bob_with_competitive_alice_64_3x3',
-#                         '2018_02_06_1548_bob_with_ambivalent_alice_64_3x3']
-#  list_of_directories = ['2018_02_06_1847_bob_with_cooperative_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_1854_bob_with_ambivalent_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_1900_bob_with_competitive_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2003_bob_with_cooperative_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2009_bob_with_ambivalent_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2016_bob_with_competitive_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2022_bob_with_cooperative_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2028_bob_with_ambivalent_alice_delayed_goal_64_3x3',
-#                         '2018_02_06_2035_bob_with_competitive_alice_delayed_goal_64_3x3']
-  list_of_directories = ['2018_02_07_0150_bob_with_cooperative_alice_64_200k_3x3',
-                         '2018_02_07_0330_bob_with_ambivalent_alice_64_200k_3x3',
-                         '2018_02_07_1408_bob_with_competitive_alice_64_200k_3x3']
+  list_of_directories = ['2018_02_08_1024_bob_with_cooperative_alice_64_1M_3x3',
+                         '2018_02_08_0306_bob_with_ambivalent_alice_64_1M_3x3',
+                         '2018_02_08_0859_bob_with_competitive_alice_64_1M_3x3']
   exp_names_and_colors = {'cooperative': 'r',
                           'ambivalent': 'b',
                           'competitive': 'g'}
-  collection_name = '3x3_64_200k'
-#  list_of_directories = ['2018_02_03_2048_bob_with_cooperative_alice_5x5',
-#                         '2018_02_03_2237_bob_with_competitive_alice_5x5']
-#  collection_name = '5x5'
+  collection_name = '3x3_64_1M'
   fig = plot_multiple_experiments(list_of_directories = list_of_directories,
                                  exp_names_and_colors = exp_names_and_colors,
                                  figure_sizes = figure_sizes,
