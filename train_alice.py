@@ -5,6 +5,7 @@ import sys
 import pickle
 import datetime
 import importlib
+import imp
 from collections import namedtuple
 from shutil import copy
 if "../" not in sys.path:
@@ -18,7 +19,7 @@ from plotting.visualize_grid_world import *
 Result = namedtuple('Result',
                    ['episode_lengths', 'episode_rewards', 'values', 'kls', 'action_probs'])
 
-def train_alice(alice_config_ext = '', env_config_ext = ''):
+def train_alice(alice_config_ext = '', env_config_ext = '', exp_name_ext = ''):
   
   config = importlib.import_module('alice_config'+alice_config_ext)
   env_config = importlib.import_module('env_config'+env_config_ext)
@@ -26,9 +27,10 @@ def train_alice(alice_config_ext = '', env_config_ext = ''):
   # initialize experiment using config.py
   tf.reset_default_graph()
   global_step = tf.Variable(0, name = "global_step", trainable = False)
-  env_param, experiment_name_ext = env_config.get_config()
+  env_param, env_exp_name_ext = env_config.get_config()
   agent_param, training_param, experiment_name = config.get_config()
-  experiment_name += experiment_name_ext
+  experiment_name += env_exp_name_ext
+  experiment_name += exp_name_ext
   env = TwoGoalGridWorld(env_param.shape,
                          env_param.r_correct,
                          env_param.r_incorrect,
