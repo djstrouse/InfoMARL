@@ -12,6 +12,15 @@ def rate_last_N(x, y, N = None):
   
   return delta_y/delta_x
 
+def mean_last_N(x, y, N = None):
+  """Calculates the mean of y for the last N steps/time measured by x. Assumes
+  x monotonically increasing. If N is None, calculates mean of all of y."""
+  
+  if N is None: index = 0
+  else: index = np.argmax(x>(x[-1]-N))
+  
+  return np.mean(y[index:])
+
 def first_time_to(x, y):
   """x is considered time or steps, y reward. This function returns the total
   number of steps measured by x until reached 1,2,3,...,max(y) reward."""
