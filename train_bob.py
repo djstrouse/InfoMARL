@@ -69,6 +69,7 @@ def train_bob(bob_config_ext = '',
       alice_saver = tf.train.Saver()
     with tf.variable_scope('bob'):
       bob = RNNObserver(env = env,
+                        shared_layer_sizes = agent_param.shared_layer_sizes,
                         policy_layer_sizes = agent_param.policy_layer_sizes,
                         value_layer_sizes = agent_param.value_layer_sizes,
                         learning_rate = agent_param.learning_rate,

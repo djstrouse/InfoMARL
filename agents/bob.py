@@ -8,8 +8,8 @@ class RNNObserver():
     over goal. Own state plus RNN output is fed into two networks to produce
     policy and value function. Trained with REINFORCE."""
     
-    def __init__(self, env, policy_layer_sizes, value_layer_sizes,
-                 learning_rate = 0.025, use_RNN = True):
+    def __init__(self, env, shared_layer_sizes = [], policy_layer_sizes = [],
+                 value_layer_sizes = []], learning_rate = 0.025, use_RNN = True):
       
       self.use_RNN = use_RNN
                             
@@ -39,10 +39,20 @@ class RNNObserver():
       # concat agent state and rnn output as input to policy/value heads
       one_hot_state = tf.one_hot(self.state, depth = env.nS)
       x = tf.expand_dims(tf.concat([one_hot_state, self.z], axis = 0), 0)
+      
+      # shared layers (fully-connected MLP)
+      with tf.variable_scope('shared'):
+        i = 1
+        for n in shared_layer_sizes:
+          x = tf.layers.dense(x, n,
+                              activation = tf.nn.relu,
+                              name = 'layer_%i' % i,
+                              kernel_initializer = tf.contrib.layers.variance_scaling_initializer())
+          i += 1          
           
       # policy head (fully-connected MLP)
       with tf.variable_scope('policy'):
-        x_policy = x # [=] 1 x (nS+1)
+        x_policy = x # [=] 1 x (nS+1) or 1 x (shared_layer_sizes[-1])
         i = 1
         for n in policy_layer_sizes:
           x_policy = tf.layers.dense(x_policy, n,
@@ -59,7 +69,7 @@ class RNNObserver():
         
       # value head (fully-connected MLP)
       with tf.variable_scope('value'):
-        x_value = x # [=] 1 x (nS+1)
+        x_value = x # [=] 1 x (nS+1) or 1 x (shared_layer_sizes[-1])
         i = 1
         for n in value_layer_sizes:
           x_value = tf.layers.dense(x_value, n,
