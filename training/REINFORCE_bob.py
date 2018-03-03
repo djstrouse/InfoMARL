@@ -10,7 +10,8 @@ Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'sta
 
 def reinforce(env, alice, bob, training_steps,
               entropy_scale, value_scale, discount_factor,
-              max_episode_length, bob_goal_access = None, viz_episode_every = 500):
+              max_episode_length, bob_goal_access = None,
+              viz_episode_every = 10000, print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
   in which the alice is considered part of the environment for bob.
@@ -65,14 +66,16 @@ def reinforce(env, alice, bob, training_steps,
     this_value_scale = value_scale[step_count]
     
     # occasional viz
-    if i % viz_episode_every == 0: play(env = env,
-                                        alice = alice,
-                                        bob = bob,
-                                        max_episode_length = max_episode_length,
-                                        bob_goal_access = bob_goal_access)
+    if i % viz_episode_every == 0:
+      print('----- EPISODE %i, STEP %i -----\n' % (i, step_count))
+      play(env = env,
+           alice = alice,
+           bob = bob,
+           max_episode_length = max_episode_length,
+           bob_goal_access = bob_goal_access)
   
     # reset envs
-    alice_state, goal = alice_env.reset()
+    alice_state, goal = alice_env._reset()
     bob_state, _ = bob_env.set_goal(goal)
     
     # initialize alice and bob episode stat trackers
@@ -144,10 +147,11 @@ def reinforce(env, alice, bob, training_steps,
       else: # if done, sit still
         bob_next_state = bob_state
       
-      # print out which step we're on, useful for debugging.
-      print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
-              step_count, training_steps, last_bob_reward, t, i+1), end="")
-      # sys.stdout.flush()
+      if print_updates:
+        # print out which step we're on, useful for debugging.
+        print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
+                step_count, training_steps, last_bob_reward, t, i+1), end="")
+        # sys.stdout.flush()
   
       # check if episode over
       if (alice_done and bob_done) or t > max_episode_length: break
