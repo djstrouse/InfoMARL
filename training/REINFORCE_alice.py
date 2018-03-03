@@ -7,7 +7,8 @@ EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episo
 Transition = namedtuple('Transition', ['state', 'action', 'reward'])
 
 def reinforce(env, policy_estimator, value_estimator, training_steps,
-              entropy_scale, beta, discount_factor, max_episode_length):
+              entropy_scale, beta, discount_factor, max_episode_length,
+              print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm. Optimizes the policy
   function approximator using policy gradient.
@@ -46,7 +47,7 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
     this_beta = beta[step_count]
     
     # Reset the environment and pick the first action
-    state, goal = env.reset()
+    state, goal = env._reset()
     
     episode = []
     episode_length = 0
@@ -72,10 +73,11 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
       episode_length = t
       total_kl += kl
       
-      # Print out which step we're on, useful for debugging.
-      print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
-              step_count, training_steps, last_episode_reward, t, i+1), end="")
-      # sys.stdout.flush()
+      if print_updates:
+        # Print out which step we're on, useful for debugging.
+        print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
+                step_count, training_steps, last_episode_reward, t, i+1), end="")
+        # sys.stdout.flush()
 
       if done or t > max_episode_length: break
           
