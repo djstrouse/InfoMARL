@@ -19,7 +19,13 @@ from plotting.visualize_grid_world import *
 Result = namedtuple('Result',
                    ['episode_lengths', 'episode_rewards', 'values', 'kls', 'action_probs'])
 
-def train_alice(alice_config_ext = '', env_config_ext = '', exp_name_ext = ''):
+def train_alice(alice_config_ext = '',
+                env_config_ext = '',
+                exp_name_ext = '',
+                exp_name_prefix = '',
+                results_directory = None):
+  
+  if results_directory is None: results_directory = os.getcwd()+'/results/'
   
   config = importlib.import_module('alice_config'+alice_config_ext)
   env_config = importlib.import_module('env_config'+env_config_ext)
@@ -29,8 +35,7 @@ def train_alice(alice_config_ext = '', env_config_ext = '', exp_name_ext = ''):
   global_step = tf.Variable(0, name = "global_step", trainable = False)
   env_param, env_exp_name_ext = env_config.get_config()
   agent_param, training_param, experiment_name = config.get_config()
-  experiment_name += env_exp_name_ext
-  experiment_name += exp_name_ext
+  experiment_name = experiment_name + env_exp_name_ext + exp_name_ext
   env = TwoGoalGridWorld(env_param.shape,
                          env_param.r_correct,
                          env_param.r_incorrect,
@@ -55,8 +60,7 @@ def train_alice(alice_config_ext = '', env_config_ext = '', exp_name_ext = ''):
     kls = get_kls(policy_estimator, env, sess) # state X goal
     action_probs = get_action_probs(policy_estimator, env, sess) # state X goal X action
     # save session
-    results_directory = os.getcwd()+'/results/'
-    experiment_directory = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")+'_'+experiment_name+'/'
+    experiment_directory = exp_name_prefix+datetime.datetime.now().strftime("%Y_%m_%d_%H%M")+'_'+experiment_name+'/'
     directory = results_directory + experiment_directory
     save_path = saver.save(sess, directory+"alice.ckpt")
     print('')
@@ -80,7 +84,7 @@ def train_alice(alice_config_ext = '', env_config_ext = '', exp_name_ext = ''):
                              tick_label = 40,
                              axis_label = 50,
                              title = 60)
-  plot_episode_stats(stats, figure_sizes, smoothing_window = 25, noshow = True, directory = directory)
+  plot_episode_stats(stats, figure_sizes, noshow = True, directory = directory)
   k = 15
   print('')
   print('-'*k+'VALUES'+'-'*k)
