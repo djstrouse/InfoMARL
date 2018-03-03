@@ -97,7 +97,8 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     P = None
 
     # initial state distribution unused, state init handled by _reset
-    isd = None
+    # set to uniform distribution so that super call below doesn't get angry
+    isd = np.array([1/nS]*nS)
 
     super(TwoGoalGridWorld, self).__init__(nS, nA, P, isd)
     
