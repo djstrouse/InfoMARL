@@ -59,7 +59,7 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
   alice_env = env
   bob_env = copy.copy(alice_env)
   
-  alice_state, goal = alice_env.reset()
+  alice_state, goal = alice_env._reset()
   bob_state, _ = bob_env.set_goal(goal)
   
   alice_states = []
@@ -102,9 +102,10 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     
     # draw env with alice step
     if draw_alice:
-      alice_env._render(bob_state = bob_state)
       print('alice step %i: reward = %i, total kl = %.2f, action: %s' %
             (t, alice_total_reward, alice_total_kl, env.index_to_action[alice_action]))
+      print('')
+      alice_env._render(bob_state = bob_state)
       print('')
       if alice_done: draw_alice = False # only draw alice step first step after done
       
@@ -138,7 +139,6 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     
     # draw env with bob step
     if draw_bob:
-      alice_env._render(bob_state = next_bob_state)
       if bob_goal_access is not None: z = z[0]
       print('bob step %i: reward = %i, rnn latent = %.2f, action: %s' %
             (t, bob_total_reward, z, env.index_to_action[bob_action]))
@@ -154,6 +154,8 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
              logits[env.action_to_index['RIGHT']],
              logits[env.action_to_index['DOWN']],
              logits[env.action_to_index['STAY']]))
+      print('')
+      alice_env._render(bob_state = next_bob_state)
       print('')
       if bob_done: draw_bob = False # only draw bob step first step after done
 
