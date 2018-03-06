@@ -37,6 +37,7 @@ def play_from_directory(experiment_name):
     #alice_saver = tf.train.Saver()
   with tf.variable_scope('bob'):
     bob = RNNObserver(env = env,
+                      shared_layer_sizes = agent_param.shared_layer_sizes,
                       policy_layer_sizes = agent_param.policy_layer_sizes,
                       value_layer_sizes = agent_param.value_layer_sizes,
                       learning_rate = agent_param.learning_rate,
@@ -48,13 +49,16 @@ def play_from_directory(experiment_name):
     sess.run(tf.global_variables_initializer())
     #alice_saver.restore(sess, directory+'alice/alice.ckpt')
     bob_saver.restore(sess, directory+'bob/bob.ckpt')
-    play(env, alice, bob, bob_goal_access = training_param.bob_goal_access)
+    play(env, alice, bob,
+         bob_goal_access = training_param.bob_goal_access,
+         gamma = training_param.discount_factor)
     
   os.chdir(cwd)
     
   return
 
-def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
+def play(env, alice, bob, max_episode_length = 100,
+         bob_goal_access = None, gamma = None):
   
   alice_env = env
   bob_env = copy.copy(alice_env)
@@ -70,8 +74,8 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
   alice_total_kl = 0
   draw_alice = True
   
-  bob_episode = []
   bob_done = False
+  bob_rewards = []
   bob_total_reward = 0
   bob_episode_length = 0
   draw_bob = True
@@ -133,6 +137,7 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
       bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
       next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
       bob_total_reward += bob_reward
+      bob_rewards.append(bob_reward)
       bob_episode_length = t
     else: # if done, sit still
       bob_next_state = bob_state
@@ -140,8 +145,8 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
     # draw env with bob step
     if draw_bob:
       if bob_goal_access is not None: z = z[0]
-      print('bob step %i: reward = %i, rnn latent = %.2f, action: %s' %
-            (t, bob_total_reward, z, env.index_to_action[bob_action]))
+      print('bob step %i: reward = %i, value = %.2f, rnn latent = %.2f, action: %s' %
+            (t, bob_total_reward, bob_value, z, env.index_to_action[bob_action]))
       print('policy: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
             (bob_action_probs[env.action_to_index['LEFT']],
              bob_action_probs[env.action_to_index['UP']],
@@ -163,9 +168,17 @@ def play(env, alice, bob, max_episode_length = 100, bob_goal_access = None):
         
     alice_state = next_alice_state
     bob_state = next_bob_state
-    
-  #bob.print_trainable()
+
+  # print bob's return for each step  
+  if gamma is not None:
+    returns = [sum(np.array([gamma**i for i in range(len(bob_rewards)-t)])*np.array(bob_rewards[t:])) for t in range(len(bob_rewards))]
+    str_returns = ['%.2f' % r for r in returns]
+    print('bob returns:', end = ' ')
+    for i in range(len(str_returns)):
+      print('%i: %s' % (i+1,str_returns[i].lstrip('0')), end = '')
+      if i<len(str_returns)-1: print(',', end = ' ')
+    print('')
   
 if __name__ == "__main__":
-  play_from_directory('2018_02_06_1847_bob_with_cooperative_alice_delayed_goal_64_3x3')
+  play_from_directory('job16321705_task6_2018_03_03_020524_bob_with_cooperative_alice_shared128_1M_5x5')
   
