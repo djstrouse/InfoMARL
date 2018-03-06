@@ -9,8 +9,6 @@ from util.stats import rate_last_N, first_time_to
 
 FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
 
-# added dotted lines for Alice!
-
 def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
                               figure_sizes, collection_name):
   
@@ -118,7 +116,7 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
   plt.close(fig2)  
   
   # Plot time steps per unit reward (smoothed)
-  window = 1000
+  window = 500
   fig3 = plt.figure(figsize = figure_sizes.figure)
   # plot bob
   for n in range(len(results)):
@@ -144,13 +142,96 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
   plt.title("Steps per Reward over Time (Smoothed over approximately {} episodes)".format(window), fontsize = figure_sizes.title) 
   #plt.xlim((0, np.min(total_steps)))
   _, ymax = plt.gca().get_ylim()
-  plt.ylim(0, min(6*average_steps_per_reward,ymax))
+  plt.ylim(0, min(2*average_steps_per_reward,ymax))
   plt.legend(loc = 'upper right', fontsize = figure_sizes.axis_label)
   plt.tick_params(labelsize = figure_sizes.tick_label)  
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.eps', format='eps')
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.pdf', format='pdf')
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.png', format='png')
-  plt.close(fig3)  
+  plt.close(fig3)
+
+
+  # Plot time steps per unit reward as % of Alice's
+  window = 500
+  fig4 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  for n in range(len(results)-1,-1,-1):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    total_steps, steps_per_reward = first_time_to(r.bob.episode_lengths, r.bob.episode_rewards)
+    average_steps_per_reward = np.sum(r.alice.episode_lengths)/np.sum(r.alice.episode_rewards)
+    bob_over_alice = steps_per_reward/average_steps_per_reward
+    bob_over_alice_smoothed = pd.Series(bob_over_alice).rolling(window, min_periods = window).mean()
+    plt.plot(total_steps, bob_over_alice_smoothed,
+             color = c, linestyle = '-', label = l, linewidth = 8)
+  plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+  plt.ylabel("Bob Normalized Episode Length", fontsize = figure_sizes.axis_label)
+  plt.title("Bob Steps per Reward / Alice's Average (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+  #plt.xlim((0, np.min(total_steps)))
+  #_, ymax = plt.gca().get_ylim()
+  plt.ylim((.95, 2))
+  plt.legend(loc = 'upper right', fontsize = figure_sizes.axis_label)
+  plt.tick_params(labelsize = figure_sizes.tick_label)  
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_normalized_steps_per_reward.eps', format='eps')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_normalized_steps_per_reward.pdf', format='pdf')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_normalized_steps_per_reward.png', format='png')
+  plt.close(fig4) 
+  
+  # Plot percentage of time Bob beats Alice to the goal
+  window = 1000
+  fig5 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    bob_beats_alice = np.array(r.bob.episode_lengths) < np.array(r.alice.episode_lengths)
+    bob_win_percentage = pd.Series(bob_beats_alice).rolling(window, min_periods = window).mean()
+    total_steps = np.cumsum(r.bob.episode_lengths)
+    plt.plot(total_steps, bob_win_percentage,
+             color = c, linestyle = '-', label = l, linewidth = 8)
+  plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+  plt.ylabel("% of time Bob beats Alice to goal", fontsize = figure_sizes.axis_label)
+  plt.title("Bob's Win Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+  #plt.xlim((0, np.min(total_steps)))
+  #_, ymax = plt.gca().get_ylim()
+  plt.ylim((0, .5))
+  plt.legend(loc = 'upper left', fontsize = figure_sizes.axis_label)
+  plt.tick_params(labelsize = figure_sizes.tick_label)  
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_percentage.eps', format='eps')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_percentage.pdf', format='pdf')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_percentage.png', format='png')
+  plt.close(fig5)
+  
+  # Plot percentage of time Bob beats or ties Alice to the goal
+  window = 1000
+  fig6 = plt.figure(figsize = figure_sizes.figure)
+  # plot bob
+  for n in range(len(results)):
+    r = results[n]
+    c = colors[n]
+    l = labels[n]
+    d = list_of_directories[n]
+    bob_beats_alice = np.array(r.bob.episode_lengths) <= np.array(r.alice.episode_lengths)
+    bob_win_percentage = pd.Series(bob_beats_alice).rolling(window, min_periods = window).mean()
+    total_steps = np.cumsum(r.bob.episode_lengths)
+    plt.plot(total_steps, bob_win_percentage,
+             color = c, linestyle = '-', label = l, linewidth = 8)
+  plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+  plt.ylabel("% of time Bob beats/ties Alice to goal", fontsize = figure_sizes.axis_label)
+  plt.title("Bob's Win+Tie Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+  #plt.xlim((0, np.min(total_steps)))
+  #_, ymax = plt.gca().get_ylim()
+  plt.ylim((0, .7))
+  plt.legend(loc = 'upper left', fontsize = figure_sizes.axis_label)
+  plt.tick_params(labelsize = figure_sizes.tick_label)  
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_tie_percentage.eps', format='eps')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_tie_percentage.pdf', format='pdf')
+  plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_tie_percentage.png', format='png')
+  plt.close(fig6) 
   
   return
   
@@ -160,13 +241,40 @@ if __name__ == "__main__":
                              tick_label = 40,
                              axis_label = 50,
                              title = 60)
-  list_of_directories = ['2018_02_08_1024_bob_with_cooperative_alice_64_1M_3x3',
-                         '2018_02_08_0306_bob_with_ambivalent_alice_64_1M_3x3',
-                         '2018_02_08_0859_bob_with_competitive_alice_64_1M_3x3']
+#  list_of_directories = ['job16329146_task1_2018_03_03_175227_bob_with_cooperative_alice_shared128_200k_5x5',
+#                         'job16329146_task10_2018_03_03_175618_bob_with_ambivalent_alice_shared128_200k_5x5',
+#                         'job16329146_task28_2018_03_03_180353_bob_with_competitive_alice_shared128_200k_5x5',
+#                         'job16329146_task35_2018_03_03_175949_bob_with_cooperative_alice_shared128_200k_5x5',
+#                         'job16329146_task43_2018_03_03_180523_bob_with_ambivalent_alice_shared128_200k_5x5',
+#                         'job16329146_task54_2018_03_03_180637_bob_with_competitive_alice_shared128_200k_5x5',
+#                         'job16329146_task61_2018_03_03_181125_bob_with_cooperative_alice_shared128_200k_5x5',
+#                         'job16329146_task72_2018_03_03_181107_bob_with_ambivalent_alice_shared128_200k_5x5',
+#                         'job16329146_task80_2018_03_03_181246_bob_with_competitive_alice_shared128_200k_5x5',
+#                         'job16329146_task99_2018_03_03_181504_bob_with_cooperative_alice_shared128_200k_5x5',
+#                         'job16329146_task108_2018_03_03_181827_bob_with_ambivalent_alice_shared128_200k_5x5',
+#                         'job16329146_task116_2018_03_03_181731_bob_with_competitive_alice_shared128_200k_5x5',
+#                         'job16329146_task126_2018_03_03_181546_bob_with_cooperative_alice_shared128_200k_5x5',
+#                         'job16329146_task137_2018_03_03_181458_bob_with_ambivalent_alice_shared128_200k_5x5']
+  list_of_directories = ['job16332603_task5_2018_03_03_211828_bob_with_cooperative_alice_shared128_200k_5x5',
+                         'job16332603_task10_2018_03_03_212312_bob_with_ambivalent_alice_shared128_200k_5x5',
+                         'job16332603_task23_2018_03_03_211523_bob_with_competitive_alice_shared128_200k_5x5',
+                         'job16332603_task35_2018_03_03_211631_bob_with_cooperative_alice_shared128_200k_5x5',
+                         'job16332603_task49_2018_03_03_211433_bob_with_ambivalent_alice_shared128_200k_5x5',
+                         'job16332603_task55_2018_03_03_211915_bob_with_competitive_alice_shared128_200k_5x5',
+                         'job16332603_task69_2018_03_03_211400_bob_with_cooperative_alice_shared128_200k_5x5',
+                         'job16332603_task77_2018_03_03_211647_bob_with_ambivalent_alice_shared128_200k_5x5',
+                         'job16332603_task85_2018_03_03_211755_bob_with_competitive_alice_shared128_200k_5x5',
+                         'job16332603_task96_2018_03_03_211543_bob_with_cooperative_alice_shared128_200k_5x5',
+                         'job16332603_task104_2018_03_03_211550_bob_with_ambivalent_alice_shared128_200k_5x5',
+                         'job16332603_task118_2018_03_03_211436_bob_with_competitive_alice_shared128_200k_5x5',
+                         'job16332603_task123_2018_03_03_211520_bob_with_cooperative_alice_shared128_200k_5x5',
+                         'job16332603_task135_2018_03_03_211653_bob_with_ambivalent_alice_shared128_200k_5x5',
+                         'job16332603_task140_2018_03_03_211811_bob_with_competitive_alice_shared128_200k_5x5']
+
   exp_names_and_colors = {'cooperative': 'r',
                           'ambivalent': 'b',
                           'competitive': 'g'}
-  collection_name = '3x3_64_1M'
+  collection_name = '5x5_shared128_200k_bestof10'
   fig = plot_multiple_experiments(list_of_directories = list_of_directories,
                                  exp_names_and_colors = exp_names_and_colors,
                                  figure_sizes = figure_sizes,
