@@ -28,7 +28,7 @@ class PolicyEstimator():
             self.picked_action_prob = tf.gather(self.action_probs, self.action)
 
             # Loss and train op
-            self.loss = -tf.log(self.picked_action_prob) * self.target + \
+            self.loss = -tf.log(self.picked_action_prob) * (self.target) + \
                         -self.entropy_scale * self.action_entropy + \
                         -self.beta * self.kl
 

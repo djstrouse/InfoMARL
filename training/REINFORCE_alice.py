@@ -94,17 +94,19 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
       # The return after this timestep
       total_return = sum(discount_factor**i * t.reward for i, t in enumerate(episode[t:]))
       # Update our value estimator
-      value_estimator.update(transition.state, goal, total_return)
+      value_estimator.update(state = transition.state,
+                             goal = goal,
+                             target = total_return)
       # Calculate baseline/advantage
       baseline_value = value_estimator.predict(transition.state, goal)            
       advantage = total_return - baseline_value
       # Update our policy estimator
-      policy_estimator.update(transition.state,
-                              goal,
-                              advantage,
-                              transition.action,
-                              this_entropy_scale,
-                              this_beta)
+      policy_estimator.update(state = transition.state,
+                              goal = goal,
+                              target = advantage,
+                              action = transition.action,
+                              entropy_scale = this_entropy_scale,
+                              beta = this_beta)
       
     # if exceeded number of steps to train for, quit
     if step_count >= training_steps: break

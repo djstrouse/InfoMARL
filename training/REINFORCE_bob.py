@@ -93,8 +93,6 @@ def reinforce(env, alice, bob, training_steps,
     # iterate over steps of alice+bob
     for t in itertools.count(start = 1):
       
-      step_count += 1
-      
       # first alice takes a step
       if not alice_done:
         alice_action_probs = alice.predict(alice_state, goal)
@@ -113,6 +111,7 @@ def reinforce(env, alice, bob, training_steps,
       
       # then bob takes a step
       if not bob_done:
+        step_count += 1
         if bob_goal_access is None:
           bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
                                                       obs_states = alice_states,
@@ -179,13 +178,11 @@ def reinforce(env, alice, bob, training_steps,
     for t, transition in enumerate(bob_episode):
       # the return after this timestep
       total_return = sum(discount_factor**i * t.reward for i, t in enumerate(bob_episode[t:]))
-      # the advantage            
-      advantage = total_return - transition.value
       # update bob
       if bob_goal_access is None: # provide alice trajectory
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = advantage,
+                   target = total_return,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    obs_states = transition.alice_states,
@@ -193,14 +190,14 @@ def reinforce(env, alice, bob, training_steps,
       elif bob_goal_access == 'immediate': # provide static z
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = advantage,
+                   target = total_return,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    z = z)
       elif bob_goal_access == 'delayed': # provide dynamic z
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = advantage,
+                   target = total_return,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    z = transition.z)

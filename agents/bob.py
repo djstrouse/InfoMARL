@@ -9,7 +9,7 @@ class RNNObserver():
     policy and value function. Trained with REINFORCE."""
     
     def __init__(self, env, shared_layer_sizes = [], policy_layer_sizes = [],
-                 value_layer_sizes = []], learning_rate = 0.025, use_RNN = True):
+                 value_layer_sizes = [], learning_rate = 0.025, use_RNN = True):
       
       self.use_RNN = use_RNN
                             
@@ -82,7 +82,7 @@ class RNNObserver():
                                                 name = 'layer_%i' % i))
       
       # loss and train op
-      self.loss = -tf.log(self.picked_action_prob) * self.target + \
+      self.loss = -tf.log(self.picked_action_prob) * (self.target - tf.stop_gradient(self.value)) + \
                   -self.entropy_scale * self.action_entropy + \
                   self.value_scale * tf.squared_difference(self.value, self.target)
 
