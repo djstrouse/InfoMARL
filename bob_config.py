@@ -1,21 +1,23 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'bob_shared128_1M'
+experiment_name = 'bob_shared128_250k'
 
 alice_experiment = 'alice_5x5'
 
 # justification for experiment
 '''
-rerunning 5x5 with shared layers and much less time (1M), low entropy (.05 start)
+rerunning 5x5 with shared layers with much less time (1M -> 200k), low entropy (.05 start)
 next exps: train longer, widen layers, deepen, REINFORCE -> actor-critic,
            switch between freeze RNN + train NN and train RNN + freeze NN,
-           turn up value scale
+           turn up value scale, how well is value function doing?,
+           add policy = current_policy + epsilon
 '''
 
 # RNNObserver agent variables
 AgentParam = namedtuple('AgentParameters',
-                       ['policy_layer_sizes',
+                       ['shared_layer_sizes',
+                        'policy_layer_sizes',
                         'value_layer_sizes',
                         'learning_rate',
                         'use_RNN'])
@@ -33,7 +35,7 @@ TrainingParam = namedtuple('TrainingParameters',
                            'discount_factor',
                            'max_episode_length',
                            'bob_goal_access'])
-training_steps = 1000000 # 1M
+training_steps = 200000 # 200k
 training_param = TrainingParam(training_steps = training_steps,
                                entropy_scale = log_decay(.05, .01, training_steps),
                                value_scale = .5,
