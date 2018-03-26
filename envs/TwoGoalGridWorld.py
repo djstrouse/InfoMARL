@@ -14,20 +14,21 @@ index_to_action = {v: k for k, v in action_to_index.items()}
 # for more control, could subclass the superclass Env in gym/core.py
 class TwoGoalGridWorld(discrete.DiscreteEnv):
   """
-  You are an agent on an MxN grid and your goal is to reach the terminal
-  state at the top left or the top right corner, depending on the episode.
-  For example, a 4x4 grid looks as follows:
-  +  o  o  -
-  o  A  o  o
-  o  o  o  o
-  o  o  o  o
+  You are an agent on an MxN (M = height, N = width) grid and your goal is to
+  reach the terminal state at the top left or the top right corner, depending
+  on the episode. For example, a 4x5 grid looks as follows:
+  +  o  o  o  -
+  o  A  o  o  o
+  o  o  o  o  o
+  o  o  o  o  o
   A is your position, + is a terminal state with positive reward (r_correct),
   and - a terminal state with negative reward (r_incorrect).
   You can take actions in each direction (UP=0, RIGHT=1, DOWN=2, LEFT=3), or
   choose not to move at all (STAY=4).
-  Actions going off the edge leave you in your current state.
+  Actions going off the edge leave you in your current state, but incur pentaly r_wall.
+  Env may also return a random transition with probability p_rand; no r_wall penalty in this case.
   You receive a reward of r_step at each step until you reach a terminal state.
-  goal_locs allows for changing the location of number of goals from default.
+  goal_locs allows for changing the location or number of goals from default.
   goal_dist allows for changing sampling frequency of goals from default.
   If # of goals is more than 2, r_correct applies only to correct goal, and
   r_incorrect applies to all other goals.
@@ -40,6 +41,8 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
                r_correct = +1,
                r_incorrect = -1,
                r_step = 0.,
+               r_wall = 0.,
+               p_rand = 0.,
                goal_locs = None,
                goal_dist = None):
     
@@ -51,9 +54,11 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     self.r_correct = r_correct
     self.r_incorrect = r_incorrect
     self.r_step = r_step
+    self.r_wall = r_wall
+    self.p_rand = p_rand
 
-    nS = np.prod(shape)
-    nA = 5
+    self.nS = np.prod(shape)
+    self.nA = 5
 
     self.max_y = shape[0]
     self.max_x = shape[1]
@@ -98,11 +103,11 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
 
     # initial state distribution unused, state init handled by _reset
     # set to uniform distribution so that super call below doesn't get angry
-    isd = np.array([1/nS]*nS)
+    isd = np.array([1/self.nS]*self.nS)
 
-    super(TwoGoalGridWorld, self).__init__(nS, nA, P, isd)
+    super(TwoGoalGridWorld, self).__init__(self.nS, self.nA, P, isd)
     
-  def _reward(self, s):
+  def _reward(self, s, hit_wall):
     """Return reward for a given state. Assumes a goal g has been chosen.
     Helper function for _reset."""
     
@@ -112,6 +117,9 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     elif s in self.goal_locs: reward = self.r_incorrect
     # otherwise, stepwise reward
     else: reward = self.r_step
+    # if hit wall, add that reward
+    if hit_wall: reward += self.r_wall
+    
     return reward
   
   def _reset(self, goal = None):
@@ -138,7 +146,7 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
 
       # edge case of spawning in a terminal state
       if is_done(s):
-        reward = self._reward(s)
+        reward = self._reward(s, False)
         P[s][UP] = [(1.0, s, reward, True)]
         P[s][RIGHT] = [(1.0, s, reward, True)]
         P[s][DOWN] = [(1.0, s, reward, True)]
@@ -146,15 +154,48 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
         P[s][STAY] = [(1.0, s, reward, True)]
       # not a terminal state
       else:
-        ns_up = s if y == 0 else s - self.max_x
-        ns_right = s if x == (self.max_x - 1) else s + 1
-        ns_down = s if y == (self.max_y - 1) else s + self.max_x
-        ns_left = s if x == 0 else s - 1
-        P[s][UP] = [(1.0, ns_up, self._reward(ns_up), is_done(ns_up))]
-        P[s][RIGHT] = [(1.0, ns_right, self._reward(ns_right), is_done(ns_right))]
-        P[s][DOWN] = [(1.0, ns_down, self._reward(ns_down), is_done(ns_down))]
-        P[s][LEFT] = [(1.0, ns_left, self._reward(ns_left), is_done(ns_left))]
-        P[s][STAY] = [(1.0, s, self._reward(s), is_done(s))]        
+        # UP
+        if y == 0:
+          ns_up = s
+          hit_wall = True
+        else:
+          ns_up = s - self.max_x
+          hit_wall = False
+          # RIGHT
+        if x == (self.max_x - 1):
+          ns_right = s
+          hit_wall = True
+        else:
+          ns_right = s + 1
+          hit_wall = False
+        # DOWN
+        if y == (self.max_y - 1):
+          ns_down = s
+          hit_wall = True
+        else:
+          ns_down = s + self.max_x
+          hit_wall = False
+        # LEFT
+        if x == 0:
+          ns_left = s
+          hit_wall = True
+        else:
+          ns_left = s - 1
+          hit_wall = False
+          
+        # random transitions
+        rand_trans = [(self.p_rand/self.nA, ns_up, self._reward(ns_up, False), is_done(ns_up)),
+                      (self.p_rand/self.nA, ns_right, self._reward(ns_right, False), is_done(ns_right)),
+                      (self.p_rand/self.nA, ns_down, self._reward(ns_down, False), is_done(ns_down)),
+                      (self.p_rand/self.nA, ns_left, self._reward(ns_left, False), is_done(ns_left)),
+                      (self.p_rand/self.nA, s, self._reward(s, False), is_done(s))]
+        
+        # action-dependent transition probabilities, including random transitions
+        P[s][UP] = [(1.0 - self.p_rand, ns_up, self._reward(ns_up, hit_wall), is_done(ns_up))] + rand_trans
+        P[s][RIGHT] = [(1.0 - self.p_rand, ns_right, self._reward(ns_right, hit_wall), is_done(ns_right))] + rand_trans
+        P[s][DOWN] = [(1.0 - self.p_rand, ns_down, self._reward(ns_down, hit_wall), is_done(ns_down))] + rand_trans
+        P[s][LEFT] = [(1.0 - self.p_rand, ns_left, self._reward(ns_left, hit_wall), is_done(ns_left))] + rand_trans
+        P[s][STAY] = [(1.0 - self.p_rand, s, self._reward(s, False), is_done(s))] + rand_trans
 
       it.iternext()
       
