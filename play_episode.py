@@ -1,12 +1,11 @@
 import itertools
 import copy
 import os
-import sys
 import tensorflow as tf
 import numpy as np
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
 from agents.bob import RNNObserver
-from agents.alice import PolicyEstimator
+from agents.alice import TabularREINFORCE
 
 def play_from_directory(experiment_name):
   
@@ -17,7 +16,7 @@ def play_from_directory(experiment_name):
   
   # import configs
   import alice_config
-  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
+  alice_training_param, alice_experiment_name = alice_config.get_config()
   import env_config
   env_param, _ = env_config.get_config()
   import bob_config
@@ -26,21 +25,22 @@ def play_from_directory(experiment_name):
   # initialize experiment using configs
   tf.reset_default_graph()
   #global_step = tf.Variable(0, name = "global_step", trainable = False)
-  env = TwoGoalGridWorld(env_param.shape,
-                         env_param.r_correct,
-                         env_param.r_incorrect,
-                         env_param.r_step,
-                         env_param.goal_locs,
-                         env_param.goal_dist)
+  env = TwoGoalGridWorld(shape = env_param.shape,
+                         r_correct = env_param.r_correct,
+                         r_incorrect = env_param.r_incorrect,
+                         r_step = env_param.r_step,
+                         r_wall = env_param.r_wall,
+                         p_rand = env_param.p_rand,
+                         goal_locs = env_param.goal_locs,
+                         goal_dist = env_param.goal_dist)
   with tf.variable_scope('alice'):  
-    alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
+    alice = TabularREINFORCE(env)
     #alice_saver = tf.train.Saver()
   with tf.variable_scope('bob'):
     bob = RNNObserver(env = env,
                       shared_layer_sizes = agent_param.shared_layer_sizes,
                       policy_layer_sizes = agent_param.policy_layer_sizes,
                       value_layer_sizes = agent_param.value_layer_sizes,
-                      learning_rate = agent_param.learning_rate,
                       use_RNN = agent_param.use_RNN)
     bob_saver = tf.train.Saver()
      
@@ -90,9 +90,8 @@ def play(env, alice, bob, max_episode_length = 100,
     
     # first alice takes a step
     if not alice_done:
-      alice_action_probs = alice.predict(alice_state, goal)
+      alice_action_probs, alice_value, kl = alice.predict(alice_state, goal)
       alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
-      kl = alice.get_kl(alice_state, goal)
       next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
       # update alice stats
       alice_total_reward += alice_reward
@@ -116,15 +115,14 @@ def play(env, alice, bob, max_episode_length = 100,
     # then bob takes a step
     if not bob_done:
       if bob_goal_access is None:
-        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
-                                                          obs_states = alice_states,
-                                                          obs_actions = alice_actions)
-        z = bob.get_z(alice_states, alice_actions, bob_state)
+        bob_action_probs, bob_value, z, logits = bob.predict(state = bob_state,
+                                                             obs_states = alice_states,
+                                                             obs_actions = alice_actions)
       elif bob_goal_access == 'immediate':
         if goal == 0: z = [-1]
         elif goal == 1: z = [+1]
-        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
-                                                          z = z)
+        bob_action_probs, bob_value, _, logits = bob.predict(state = bob_state,
+                                                             z = z)
       elif bob_goal_access == 'delayed':
         kl_thresh = .8
         if alice_total_kl>kl_thresh:
@@ -132,15 +130,15 @@ def play(env, alice, bob, max_episode_length = 100,
           elif goal == 1: z = [+1]
         else:
           z = [0]
-        bob_action_probs, bob_value, logits = bob.predict(state = bob_state,
-                                                          z = z)
+        bob_action_probs, bob_value, _, logits = bob.predict(state = bob_state,
+                                                             z = z)
       bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
       next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
       bob_total_reward += bob_reward
       bob_rewards.append(bob_reward)
       bob_episode_length = t
     else: # if done, sit still
-      bob_next_state = bob_state
+      next_bob_state = bob_state
     
     # draw env with bob step
     if draw_bob:

@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 import os
 import sys
 import pickle
@@ -12,10 +11,9 @@ from shutil import copy
 if "../" not in sys.path: sys.path.append("../") 
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
 from agents.bob import RNNObserver
-from agents.alice import PolicyEstimator
+from agents.alice import TabularREINFORCE
 from training.REINFORCE_bob import reinforce
-from plotting.plot_episode_stats import *
-from plotting.visualize_grid_world import *
+from plotting.plot_episode_stats import plot_episode_stats
 
 Result = namedtuple('Result', ['alice', 'bob'])
 #Stats = namedtuple('Stats', ['episode_lengths',
@@ -27,9 +25,7 @@ Stats = namedtuple('Stats', ['episode_lengths',
                              'steps_per_reward',
                              'total_steps'])
 
-def train_bob(bob_config_ext = '',
-              exp_name_ext = '',
-              exp_name_prefix = '',
+def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
               results_directory = None):
   
   if results_directory is None: results_directory = os.getcwd()+'/results/'
@@ -42,19 +38,21 @@ def train_bob(bob_config_ext = '',
   # import alice
   alice_directory = results_directory+alice_experiment+'/'
   alice_config = imp.load_source('alice_config', alice_directory+'alice_config.py')
-  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
+  alice_training_param, alice_experiment_name = alice_config.get_config()
   print('Imported Alice.')
   
   # import and init env
   env_config = imp.load_source('env_config', alice_directory+'env_config.py')
   env_param, env_exp_name_ext = env_config.get_config()
   experiment_name = experiment_name + env_exp_name_ext + exp_name_ext
-  env = TwoGoalGridWorld(env_param.shape,
-                         env_param.r_correct,
-                         env_param.r_incorrect,
-                         env_param.r_step,
-                         env_param.goal_locs,
-                         env_param.goal_dist)
+  env = TwoGoalGridWorld(shape = env_param.shape,
+                         r_correct = env_param.r_correct,
+                         r_incorrect = env_param.r_incorrect,
+                         r_step = env_param.r_step,
+                         r_wall = env_param.r_wall,
+                         p_rand = env_param.p_rand,
+                         goal_locs = env_param.goal_locs,
+                         goal_dist = env_param.goal_dist)
   print('Imported environment.')
    
   # run training, and if nans, creep in, train again until they don't
@@ -65,14 +63,13 @@ def train_bob(bob_config_ext = '',
     tf.reset_default_graph()
     #global_step = tf.Variable(0, name = "global_step", trainable = False)    
     with tf.variable_scope('alice'):  
-      alice = PolicyEstimator(env, alice_agent_param.policy_learning_rate)
+      alice = TabularREINFORCE(env)
       alice_saver = tf.train.Saver()
     with tf.variable_scope('bob'):
       bob = RNNObserver(env = env,
                         shared_layer_sizes = agent_param.shared_layer_sizes,
                         policy_layer_sizes = agent_param.policy_layer_sizes,
                         value_layer_sizes = agent_param.value_layer_sizes,
-                        learning_rate = agent_param.learning_rate,
                         use_RNN = agent_param.use_RNN)
       saver = tf.train.Saver()
     print('Initialized Alice and Bob.')
@@ -82,8 +79,11 @@ def train_bob(bob_config_ext = '',
       sess.run(tf.global_variables_initializer())
       alice_saver.restore(sess, alice_directory+'alice.ckpt')
       print('Loaded trained Alice.')
-      alice_stats, bob_stats, success = reinforce(env, alice, bob,
+      alice_stats, bob_stats, success = reinforce(env = env,
+                                                  alice = alice,
+                                                  bob = bob,
                                                   training_steps = training_param.training_steps,
+                                                  learning_rate = training_param.learning_rate,
                                                   entropy_scale = training_param.entropy_scale,
                                                   value_scale = training_param.value_scale,
                                                   discount_factor = training_param.discount_factor,

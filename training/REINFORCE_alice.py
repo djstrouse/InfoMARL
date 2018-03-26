@@ -6,30 +6,37 @@ from collections import namedtuple
 EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
 Transition = namedtuple('Transition', ['state', 'action', 'reward'])
 
-def reinforce(env, policy_estimator, value_estimator, training_steps,
-              entropy_scale, beta, discount_factor, max_episode_length,
-              print_updates = False):
+def reinforce(env, agent, training_steps, learning_rate,
+              entropy_scale, value_scale, info_scale,
+              discount_factor, max_episode_length, print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm. Optimizes the policy
   function approximator using policy gradient.
   
   Args:
     env: OpenAI environment.
-    policy: policy to be optimized 
-    value: value function approximator, used as a baseline
+    agent: policy/value with predict/update functions
     training_steps: number of time steps to train for
-    entropy_scale: vector of length num_episodes
+    learning_rate: scalar, or vector of length training_steps
+    entropy_scale: scalar, or vector of length training_steps
+    value_scale: scalar, or vector of length training_steps
+    info_scale: scalar, or vector of length training_steps
     discount_factor: time-discount factor
+    max_episode_length: max time steps before forced env reset
   
   Returns:
-      An EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
+      An EpisodeStats object: see above.
   """
   
   # this allows one to set params to scalars when not wanting to anneal them
+  if not isinstance(learning_rate, (list, np.ndarray)):
+    learning_rate = [learning_rate]*training_steps
   if not isinstance(entropy_scale, (list, np.ndarray)):
     entropy_scale = [entropy_scale]*training_steps
-  if not isinstance(beta, (list, np.ndarray)):
-    beta = [beta]*training_steps
+  if not isinstance(value_scale, (list, np.ndarray)):
+    value_scale = [value_scale]*training_steps
+  if not isinstance(info_scale, (list, np.ndarray)):
+    info_scale = [info_scale]*training_steps
 
   # Keeps track of useful statistics
   stats = EpisodeStats(episode_lengths = [],
@@ -43,8 +50,10 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
   # iterate over episodes
   for i in itertools.count(start = 0):
     
+    this_learning_rate = learning_rate[step_count]
     this_entropy_scale = entropy_scale[step_count]
-    this_beta = beta[step_count]
+    this_info_scale = info_scale[step_count]
+    this_value_scale = value_scale[step_count]
     
     # Reset the environment and pick the first action
     state, goal = env._reset()
@@ -60,8 +69,7 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
       step_count += 1
         
       # Take a step
-      action_probs = policy_estimator.predict(state, goal)
-      kl = policy_estimator.get_kl(state, goal)
+      action_probs, value, kl = agent.predict(state, goal)
       action = np.random.choice(np.arange(len(action_probs)), p = action_probs)
       next_state, reward, done, _ = env.step(action)
       
@@ -89,24 +97,17 @@ def reinforce(env, policy_estimator, value_estimator, training_steps,
     stats.episode_kls.append(total_kl)
     last_episode_reward = total_reward
 
-    # Go through the episode and make policy updates
+    # go through episode and make agent updates
     for t, transition in enumerate(episode):
-      # The return after this timestep
       total_return = sum(discount_factor**i * t.reward for i, t in enumerate(episode[t:]))
-      # Update our value estimator
-      value_estimator.update(state = transition.state,
-                             goal = goal,
-                             target = total_return)
-      # Calculate baseline/advantage
-      baseline_value = value_estimator.predict(transition.state, goal)            
-      advantage = total_return - baseline_value
-      # Update our policy estimator
-      policy_estimator.update(state = transition.state,
-                              goal = goal,
-                              target = advantage,
-                              action = transition.action,
-                              entropy_scale = this_entropy_scale,
-                              beta = this_beta)
+      agent.update(state = transition.state,
+                   goal = goal,
+                   action = transition.action,
+                   return_estimate = total_return,
+                   learning_rate = this_learning_rate,
+                   entropy_scale = this_entropy_scale,
+                   value_scale = this_value_scale,
+                   info_scale = this_info_scale)
       
     # if exceeded number of steps to train for, quit
     if step_count >= training_steps: break

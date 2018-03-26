@@ -1,33 +1,33 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'alice_unregularized_ambivalent'
+experiment_name = 'alice_negative_competitive'
 
 # justification for experiment
 '''
-retraining alice on 3x3 since i updated plotting tools and changed exp length to time steps
+testing code refactoring on 5x5
 '''
 
-# TabularREINFORCE agent variables
-AgentParam = namedtuple('AgentParameters',
-                       ['policy_learning_rate',
-                        'value_learning_rate'])
-agent_param = AgentParam(policy_learning_rate = 0.025,
-                         value_learning_rate = 0.0125)
+# parameters to set up (fixed) computational graph
+# note: tabular Alice has no parameters of this type
 
-# REINFORCE training variables
+# parameters fed as placeholders
 TrainingParam = namedtuple('TrainingParameters',
                           ['training_steps',
+                           'learning_rate',
                            'entropy_scale',
-                           'beta',
+                           'value_scale',
+                           'info_scale',
                            'discount_factor',
                            'max_episode_length'])
-training_steps = 400000
+training_steps = 100000 # 100k
 training_param = TrainingParam(training_steps = training_steps,
+                               learning_rate = .025,
                                entropy_scale = log_decay(.5, .005, training_steps),
-                               beta = 0,
-                               discount_factor = .8,
+                               value_scale = .5,
+                               info_scale = -.025,
+                               discount_factor = .9,
                                max_episode_length = 100)
 
 def get_config():
-    return agent_param, training_param, experiment_name
+    return training_param, experiment_name

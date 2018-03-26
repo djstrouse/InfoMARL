@@ -8,10 +8,10 @@ EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episo
 Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'state',
                                            'value', 'action', 'reward', 'z'])
 
-def reinforce(env, alice, bob, training_steps,
+def reinforce(env, alice, bob, training_steps, learning_rate,
               entropy_scale, value_scale, discount_factor,
               max_episode_length, bob_goal_access = None,
-              viz_episode_every = 10000, print_updates = False):
+              viz_episode_every = 1000, print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
   in which the alice is considered part of the environment for bob.
@@ -34,6 +34,8 @@ def reinforce(env, alice, bob, training_steps,
   """
   
   # this allows one to set params to scalars when not wanting to anneal them
+  if not isinstance(learning_rate, (list, np.ndarray)):
+    learning_rate = [learning_rate]*training_steps
   if not isinstance(entropy_scale, (list, np.ndarray)):
     entropy_scale = [entropy_scale]*training_steps
   if not isinstance(value_scale, (list, np.ndarray)):
@@ -62,6 +64,7 @@ def reinforce(env, alice, bob, training_steps,
   # iterate over episodes
   for i in itertools.count(start = 0):
     
+    this_learning_rate = learning_rate[step_count]
     this_entropy_scale = entropy_scale[step_count]
     this_value_scale = value_scale[step_count]
     
@@ -95,9 +98,8 @@ def reinforce(env, alice, bob, training_steps,
       
       # first alice takes a step
       if not alice_done:
-        alice_action_probs = alice.predict(alice_state, goal)
+        alice_action_probs, alice_value, kl = alice.predict(alice_state, goal)
         alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
-        kl = alice.get_kl(alice_state, goal)
         next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
         # update alice stats
         alice_total_reward += alice_reward
@@ -113,24 +115,23 @@ def reinforce(env, alice, bob, training_steps,
       if not bob_done:
         step_count += 1
         if bob_goal_access is None:
-          bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
-                                                      obs_states = alice_states,
-                                                      obs_actions = alice_actions)
-          z = bob.get_z(alice_states, alice_actions, bob_state)
+          bob_action_probs, bob_value, z, _ = bob.predict(state = bob_state,
+                                                          obs_states = alice_states,
+                                                          obs_actions = alice_actions)
         elif bob_goal_access == 'immediate':
           if goal == 0: z = [-1]
           elif goal == 1: z = [+1]
-          bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
-                                                       z = z)
+          bob_action_probs, bob_value, _, _ = bob.predict(state = bob_state,
+                                                          z = z)
         elif bob_goal_access == 'delayed':
           kl_thresh = .8
-          if alice_stats.episode_kls[i_episode]>kl_thresh:
+          if alice_stats.episode_kls[i]>kl_thresh:
             if goal == 0: z = [-1]
             elif goal == 1: z = [+1]
           else:
             z = [0]
-          bob_action_probs, bob_value, _ = bob.predict(state = bob_state,
-                                                       z = z)
+          bob_action_probs, bob_value, _, _ = bob.predict(state = bob_state,
+                                                          z = z)
         bob_action = np.random.choice(np.arange(len(bob_action_probs)), p = bob_action_probs)
         next_bob_state, bob_reward, bob_done, _ = bob_env.step(bob_action)
         bob_total_reward += bob_reward
@@ -144,7 +145,7 @@ def reinforce(env, alice, bob, training_steps,
                                         reward = bob_reward,
                                         z = z))
       else: # if done, sit still
-        bob_next_state = bob_state
+        next_bob_state = bob_state
       
       if print_updates:
         # print out which step we're on, useful for debugging.
@@ -176,13 +177,12 @@ def reinforce(env, alice, bob, training_steps,
   
     # go through the episode and make policy updates
     for t, transition in enumerate(bob_episode):
-      # the return after this timestep
       total_return = sum(discount_factor**i * t.reward for i, t in enumerate(bob_episode[t:]))
-      # update bob
       if bob_goal_access is None: # provide alice trajectory
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = total_return,
+                   return_estimate = total_return,
+                   learning_rate = this_learning_rate,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    obs_states = transition.alice_states,
@@ -190,14 +190,16 @@ def reinforce(env, alice, bob, training_steps,
       elif bob_goal_access == 'immediate': # provide static z
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = total_return,
+                   return_estimate = total_return,
+                   learning_rate = this_learning_rate,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    z = z)
       elif bob_goal_access == 'delayed': # provide dynamic z
         bob.update(state = transition.state,
                    action = transition.action,
-                   target = total_return,
+                   return_estimate = total_return,
+                   learning_rate = this_learning_rate,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
                    z = transition.z)
