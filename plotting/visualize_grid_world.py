@@ -120,6 +120,60 @@ def plot_kl_map(kls, action_probs, env, figure_sizes, noshow = False, directory 
   if noshow: plt.close(fig)
   else: plt.show(block = False)
   
+def plot_lso_map(lsos, action_probs, env, figure_sizes, noshow = False, directory = None, ext = ''):
+  """Visualizes log state odds and policy overlaid, for all goals."""
+  max_value = 1
+#  colors 1= plt.cm.binary(np.linspace(.2, .8, 128))
+  colors = plt.cm.viridis_r(np.linspace(.2, .8, 128))
+#  colors = np.vstack((colors1, colors2))
+  fig, axes = plt.subplots(ncols = env.nG, figsize = figure_sizes.figure, sharex = True, sharey = True)
+  goal = 0
+  for ax in axes.flat:
+    im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
+                      lsos[:,goal], max_value, action_probs[:,goal,:],
+                      env.action_to_index, colors)
+    goal += 1
+  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.75,
+                      boundaries = np.linspace(-max_value, max_value, 101),
+                      ticks = np.linspace(-1, 1, 5))
+  cbar.ax.tick_params(labelsize = figure_sizes.tick_label)
+  #plt.suptitle('I(state;goal)', fontsize = figure_sizes.title)
+  if directory:
+      plt.savefig(directory+'lsos'+ext+'.eps', format='eps')
+      plt.savefig(directory+'lsos'+ext+'.pdf', format='pdf')
+      plt.savefig(directory+'lsos'+ext+'.png', format='png')
+  if noshow: plt.close(fig)
+  else: plt.show(block = False)
+
+def plot_state_densities(state_goal_counts, action_probs, env, figure_sizes, noshow = False, directory = None):
+  """Visualizes state densities and policy overlaid, for all goals."""
+  max_value = 0
+  for g in range(state_goal_counts.shape[1]):
+    state_densities = state_goal_counts[:,g] / np.sum(state_goal_counts[:,g])
+    max_value = max(max_value, max(state_densities))
+  colors1 = plt.cm.binary(np.linspace(.2, .8, 128))
+  colors2 = plt.cm.viridis_r(np.linspace(.2, .8, 128))
+  colors = np.vstack((colors1, colors2))
+  fig, axes = plt.subplots(ncols = env.nG, figsize = figure_sizes.figure, sharex = True, sharey = True)
+  goal = 0
+  for ax in axes.flat:
+    state_densities = state_goal_counts[:,goal] / np.sum(state_goal_counts[:,goal])
+    im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
+                      state_densities, max_value, action_probs[:,goal,:],
+                      env.action_to_index, colors)
+    goal += 1
+  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.75,
+                      boundaries = np.linspace(0, max_value, 101),
+                      ticks = np.linspace(0, max_value, 5))
+  cbar.ax.tick_params(labelsize = figure_sizes.tick_label)
+  #plt.suptitle('I(state;goal)', fontsize = figure_sizes.title)
+  if directory:
+      plt.savefig(directory+'state_densities.eps', format='eps')
+      plt.savefig(directory+'state_densities.pdf', format='pdf')
+      plt.savefig(directory+'state_densities.png', format='png')
+  if noshow: plt.close(fig)
+  else: plt.show(block = False)
+
 def print_policy(action_probs, env):
   """Prints state-by-state action probabilities."""
   for g in range(env.nG):

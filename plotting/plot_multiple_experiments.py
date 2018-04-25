@@ -150,7 +150,6 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_steps_per_reward.png', format='png')
   plt.close(fig3)
 
-
   # Plot time steps per unit reward as % of Alice's
   window = 500
   fig4 = plt.figure(figsize = figure_sizes.figure)

@@ -1,14 +1,16 @@
 import numpy as np
 import itertools
-import copy
 from collections import namedtuple
 
-EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
-Transition = namedtuple('Transition', ['state', 'action', 'reward'])
+EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards',
+                                    'episode_lso0', 'episode_lso1',
+                                    'episode_action_kl', 'state_goal_counts'])
+Transition = namedtuple('Transition', ['state', 'action', 'reward', 'state_goal_counts'])
 
 def reinforce(env, agent, training_steps, learning_rate,
-              entropy_scale, value_scale, info_scale,
-              discount_factor, max_episode_length, print_updates = False):
+              entropy_scale, value_scale, action_info_scale, state_info_scale,
+              state_count_discount, discount_factor, max_episode_length,
+              print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm. Optimizes the policy
   function approximator using policy gradient.
@@ -35,13 +37,35 @@ def reinforce(env, agent, training_steps, learning_rate,
     entropy_scale = [entropy_scale]*training_steps
   if not isinstance(value_scale, (list, np.ndarray)):
     value_scale = [value_scale]*training_steps
-  if not isinstance(info_scale, (list, np.ndarray)):
-    info_scale = [info_scale]*training_steps
+  if not isinstance(action_info_scale, (list, np.ndarray)):
+    action_info_scale = [action_info_scale]*training_steps
+  if not isinstance(state_info_scale, (list, np.ndarray)):
+    state_info_scale = [state_info_scale]*training_steps
+    
+  # flag that tells caller of function whether or not the run had to exit early
+  #   due to nans; useful for triggering retraining with new init
+  success = True
 
-  # Keeps track of useful statistics
-  stats = EpisodeStats(episode_lengths = [],
-                       episode_rewards = [],
-                       episode_kls = []) 
+  # keep track of useful statistics
+  episode_lengths = []
+  episode_rewards = []
+  if agent.use_action_info:
+    episode_action_kl = []
+  else:
+    episode_action_kl = None
+  if agent.use_state_info:
+    episode_lso0 = []
+    episode_lso1 = []
+  else:
+    episode_lso0 = None
+    episode_lso1 = None
+  
+  # count state frequencies if using state info
+  if agent.use_state_info:
+    init_count = 1
+    state_goal_counts = init_count * np.ones((env.nS, env.nG))
+  else:
+    state_goal_counts = None
 
   # count total steps
   step_count = 0
@@ -52,16 +76,27 @@ def reinforce(env, agent, training_steps, learning_rate,
     
     this_learning_rate = learning_rate[step_count]
     this_entropy_scale = entropy_scale[step_count]
-    this_info_scale = info_scale[step_count]
     this_value_scale = value_scale[step_count]
+    this_action_info_scale = action_info_scale[step_count]
+    this_state_info_scale = state_info_scale[step_count]
     
     # Reset the environment and pick the first action
     state, goal = env._reset()
+    if agent.use_state_info: state_goal_counts[state, goal] += 1
     
     episode = []
     episode_length = 0
     total_reward = 0
-    total_kl = 0
+    if agent.use_action_info:
+      total_action_kl = 0
+    else:
+      total_action_kl = None
+    if agent.use_state_info:
+      total_lso0 = 0
+      total_lso1 = 0
+    else:
+      total_lso0 = None
+      total_lso1 = None
     
     # One step in the environment
     for t in itertools.count(start = 1):
@@ -69,37 +104,74 @@ def reinforce(env, agent, training_steps, learning_rate,
       step_count += 1
         
       # Take a step
-      action_probs, value, kl = agent.predict(state, goal)
+      action_probs, value = agent.predict(state = state, goal = goal)
       action = np.random.choice(np.arange(len(action_probs)), p = action_probs)
       next_state, reward, done, _ = env.step(action)
       
       # Keep track of the transition
-      episode.append(Transition(state = state, action = action, reward = reward))
+      episode.append(Transition(state = state,
+                                action = action,
+                                reward = reward,
+                                state_goal_counts = state_goal_counts))
       
       # Update statistics
+      if agent.use_action_info:
+        total_action_kl += agent.get_kl(state = state, goal = goal)
+      if agent.use_state_info:
+        total_lso1 += agent.get_log_state_odds(state = state, goal = goal, action = action,
+                                               state_goal_counts = state_goal_counts,
+                                               next_state = next_state)
+        ps_g = state_goal_counts[state, goal] / np.sum(state_goal_counts[:,goal])
+        ps = np.sum(state_goal_counts[state,:]) / np.sum(state_goal_counts)
+        total_lso0 += np.log2(ps_g/ps)
+        
       total_reward += reward
       episode_length = t
-      total_kl += kl
       
       if print_updates:
         # Print out which step we're on, useful for debugging.
         print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
                 step_count, training_steps, last_episode_reward, t, i+1), end="")
         # sys.stdout.flush()
-
-      if done or t > max_episode_length: break
           
       state = next_state
+      if agent.use_state_info:
+        state_goal_counts *= state_count_discount
+        state_goal_counts[state, goal] += 1
+        
+      # check if nans creeped in (to bob's action probabilities)
+      if np.isnan(action_probs).any():
+        print('NaN alert at %i steps' % step_count)
+        success = False
+        break
+      
+      if done or t > max_episode_length: break
+    
+    # no more episodes if nans
+    if not success: break
     
     # save episode stats
-    stats.episode_rewards.append(total_reward)
-    stats.episode_lengths.append(episode_length)
-    stats.episode_kls.append(total_kl)
+    final_state = next_state
+    episode_rewards.append(total_reward)
+    episode_lengths.append(episode_length)
+    if agent.use_action_info:
+      episode_action_kl.append(total_action_kl)
+    if agent.use_state_info:
+      episode_lso0.append(total_lso0)
+      episode_lso1.append(total_lso1)
     last_episode_reward = total_reward
 
     # go through episode and make agent updates
     for t, transition in enumerate(episode):
-      total_return = sum(discount_factor**i * t.reward for i, t in enumerate(episode[t:]))
+      total_return = sum(discount_factor**tau * future.reward for tau, future in enumerate(episode[t:]))
+      # if last transition, use next_state from above, since not saved as transition
+      if agent.use_state_info:
+        if t == len(episode)-1:
+          next_state = final_state
+        else:
+          next_state = episode[t+1].state
+      else:
+        next_state = None
       agent.update(state = transition.state,
                    goal = goal,
                    action = transition.action,
@@ -107,9 +179,20 @@ def reinforce(env, agent, training_steps, learning_rate,
                    learning_rate = this_learning_rate,
                    entropy_scale = this_entropy_scale,
                    value_scale = this_value_scale,
-                   info_scale = this_info_scale)
+                   action_info_scale = this_action_info_scale,
+                   state_info_scale = this_state_info_scale,
+                   state_goal_counts = transition.state_goal_counts,
+                   next_state = next_state)
       
     # if exceeded number of steps to train for, quit
     if step_count >= training_steps: break
   
-  return stats
+  # package up stats
+  stats = EpisodeStats(episode_lengths = episode_lengths,
+                       episode_rewards = episode_rewards,
+                       episode_action_kl = episode_action_kl,
+                       episode_lso0 = episode_lso0,
+                       episode_lso1 = episode_lso1,
+                       state_goal_counts = state_goal_counts)
+  
+  return stats, success

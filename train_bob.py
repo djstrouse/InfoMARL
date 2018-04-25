@@ -38,7 +38,7 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
   # import alice
   alice_directory = results_directory+alice_experiment+'/'
   alice_config = imp.load_source('alice_config', alice_directory+'alice_config.py')
-  alice_training_param, alice_experiment_name = alice_config.get_config()
+  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
   print('Imported Alice.')
   
   # import and init env
@@ -63,7 +63,9 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
     tf.reset_default_graph()
     #global_step = tf.Variable(0, name = "global_step", trainable = False)    
     with tf.variable_scope('alice'):  
-      alice = TabularREINFORCE(env)
+      alice = TabularREINFORCE(env,
+                               use_action_info = alice_agent_param.use_action_info,
+                               use_state_info = alice_agent_param.use_state_info)
       alice_saver = tf.train.Saver()
     with tf.variable_scope('bob'):
       bob = RNNObserver(env = env,

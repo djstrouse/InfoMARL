@@ -1,6 +1,7 @@
 import itertools
 import copy
 import os
+import pickle
 import tensorflow as tf
 import numpy as np
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
@@ -14,9 +15,12 @@ def play_from_directory(experiment_name):
   os.chdir(directory)
   #sys.path.append('/results/'+experiment_name)
   
+  # unpickle results
+  results = pickle.load(open(directory+'results.pkl','rb'))
+  
   # import configs
   import alice_config
-  alice_training_param, alice_experiment_name = alice_config.get_config()
+  alice_agent_param, alice_training_param, alice_experiment_name = alice_config.get_config()
   import env_config
   env_param, _ = env_config.get_config()
   import bob_config
@@ -34,7 +38,9 @@ def play_from_directory(experiment_name):
                          goal_locs = env_param.goal_locs,
                          goal_dist = env_param.goal_dist)
   with tf.variable_scope('alice'):  
-    alice = TabularREINFORCE(env)
+    alice = TabularREINFORCE(env = env,
+                             use_action_info = alice_agent_param.use_action_info,
+                             use_state_info = alice_agent_param.use_state_info)
     #alice_saver = tf.train.Saver()
   with tf.variable_scope('bob'):
     bob = RNNObserver(env = env,
@@ -49,7 +55,7 @@ def play_from_directory(experiment_name):
     sess.run(tf.global_variables_initializer())
     #alice_saver.restore(sess, directory+'alice/alice.ckpt')
     bob_saver.restore(sess, directory+'bob/bob.ckpt')
-    play(env, alice, bob,
+    play(env = env, alice = alice, bob = bob, results = results,
          bob_goal_access = training_param.bob_goal_access,
          gamma = training_param.discount_factor)
     
@@ -57,8 +63,8 @@ def play_from_directory(experiment_name):
     
   return
 
-def play(env, alice, bob, max_episode_length = 100,
-         bob_goal_access = None, gamma = None):
+def play(env, alice, bob, results = None,
+         max_episode_length = 100, bob_goal_access = None, gamma = None):
   
   alice_env = env
   bob_env = copy.copy(alice_env)
@@ -71,7 +77,9 @@ def play(env, alice, bob, max_episode_length = 100,
   alice_done = False
   alice_total_reward = 0
   alice_episode_length = 0
-  alice_total_kl = 0
+  total_kl = 0
+  total_lso0 = 0
+  total_lso1 = 0
   draw_alice = True
   
   bob_done = False
@@ -88,15 +96,28 @@ def play(env, alice, bob, max_episode_length = 100,
   # one step in the environment
   for t in itertools.count(start = 1):
     
-    # first alice takes a step
+    # first alice
     if not alice_done:
-      alice_action_probs, alice_value, kl = alice.predict(alice_state, goal)
+      
+      # take a step
+      alice_action_probs, alice_value = alice.predict(alice_state, goal)
       alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
       next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
-      # update alice stats
+
+      # update stats
+      if alice.use_action_info:
+        total_kl += alice.get_kl(state = alice_state, goal = goal)
+      if alice.use_state_info:
+        total_lso1 += alice.get_log_state_odds(state = alice_state, goal = goal,
+                                               state_goal_counts = results.state_goal_counts,
+                                               next_state = next_alice_state)
+        ps_g = results.state_goal_counts[alice_state, goal] / np.sum(results.state_goal_counts[:,goal])
+        ps = np.sum(results.state_goal_counts[alice_state,:]) / np.sum(results.state_goal_counts)
+        total_lso0 += np.log2(ps_g/ps)
+        
       alice_total_reward += alice_reward
       alice_episode_length = t
-      alice_total_kl += kl
+       
     else: # if done, sit still
       alice_action = alice_env.action_to_index['STAY']
       next_alice_state = alice_state
@@ -105,8 +126,8 @@ def play(env, alice, bob, max_episode_length = 100,
     
     # draw env with alice step
     if draw_alice:
-      print('alice step %i: reward = %i, total kl = %.2f, action: %s' %
-            (t, alice_total_reward, alice_total_kl, env.index_to_action[alice_action]))
+      print('alice step %i: reward = %i, tot kl = %.2f, tot lso0 = %.2f, tot lso1 = %.2f, action: %s' %
+            (t, alice_total_reward, total_kl, total_lso0, total_lso1, env.index_to_action[alice_action]))
       print('')
       alice_env._render(bob_state = bob_state)
       print('')
@@ -125,7 +146,7 @@ def play(env, alice, bob, max_episode_length = 100,
                                                              z = z)
       elif bob_goal_access == 'delayed':
         kl_thresh = .8
-        if alice_total_kl>kl_thresh:
+        if total_kl>kl_thresh:
           if goal == 0: z = [-1]
           elif goal == 1: z = [+1]
         else:
