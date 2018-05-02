@@ -3,8 +3,8 @@ import itertools
 from collections import namedtuple
 
 EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards',
-                                    'episode_lso0', 'episode_lso1',
-                                    'episode_action_kl', 'state_goal_counts'])
+                                    'episode_lso', 'episode_action_kl',
+                                    'state_goal_counts'])
 Transition = namedtuple('Transition', ['state', 'action', 'reward', 'state_goal_counts'])
 
 def reinforce(env, agent, training_steps, learning_rate,
@@ -54,11 +54,9 @@ def reinforce(env, agent, training_steps, learning_rate,
   else:
     episode_action_kl = None
   if agent.use_state_info:
-    episode_lso0 = []
-    episode_lso1 = []
+    episode_lso = []
   else:
-    episode_lso0 = None
-    episode_lso1 = None
+    episode_lso = None
   
   # count state frequencies if using state info
   if agent.use_state_info:
@@ -82,21 +80,17 @@ def reinforce(env, agent, training_steps, learning_rate,
     
     # Reset the environment and pick the first action
     state, goal = env._reset()
-    if agent.use_state_info: state_goal_counts[state, goal] += 1
+    if agent.use_state_info:
+      state_goal_counts *= state_count_discount
+      state_goal_counts[state, goal] += 1
     
     episode = []
     episode_length = 0
     total_reward = 0
-    if agent.use_action_info:
-      total_action_kl = 0
-    else:
-      total_action_kl = None
-    if agent.use_state_info:
-      total_lso0 = 0
-      total_lso1 = 0
-    else:
-      total_lso0 = None
-      total_lso1 = None
+    if agent.use_action_info: total_action_kl = 0
+    else: total_action_kl = None
+    if agent.use_state_info: total_lso = 0
+    else: total_lso = None
     
     # One step in the environment
     for t in itertools.count(start = 1):
@@ -118,12 +112,9 @@ def reinforce(env, agent, training_steps, learning_rate,
       if agent.use_action_info:
         total_action_kl += agent.get_kl(state = state, goal = goal)
       if agent.use_state_info:
-        total_lso1 += agent.get_log_state_odds(state = state, goal = goal, action = action,
-                                               state_goal_counts = state_goal_counts,
-                                               next_state = next_state)
         ps_g = state_goal_counts[state, goal] / np.sum(state_goal_counts[:,goal])
         ps = np.sum(state_goal_counts[state,:]) / np.sum(state_goal_counts)
-        total_lso0 += np.log2(ps_g/ps)
+        total_lso += np.log2(ps_g/ps)
         
       total_reward += reward
       episode_length = t
@@ -157,8 +148,7 @@ def reinforce(env, agent, training_steps, learning_rate,
     if agent.use_action_info:
       episode_action_kl.append(total_action_kl)
     if agent.use_state_info:
-      episode_lso0.append(total_lso0)
-      episode_lso1.append(total_lso1)
+      episode_lso.append(total_lso)
     last_episode_reward = total_reward
 
     # go through episode and make agent updates
@@ -191,8 +181,7 @@ def reinforce(env, agent, training_steps, learning_rate,
   stats = EpisodeStats(episode_lengths = episode_lengths,
                        episode_rewards = episode_rewards,
                        episode_action_kl = episode_action_kl,
-                       episode_lso0 = episode_lso0,
-                       episode_lso1 = episode_lso1,
+                       episode_lso = episode_lso,
                        state_goal_counts = state_goal_counts)
   
   return stats, success
