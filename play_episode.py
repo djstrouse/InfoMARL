@@ -63,8 +63,9 @@ def play_from_directory(experiment_name):
     
   return
 
-def play(env, alice, bob, results = None,
+def play(env, alice, bob, state_goal_counts = None,
          max_episode_length = 100, bob_goal_access = None, gamma = None):
+  # if alice.use_state_info, need to include her state_goal_counts
   
   alice_env = env
   bob_env = copy.copy(alice_env)
@@ -77,9 +78,10 @@ def play(env, alice, bob, results = None,
   alice_done = False
   alice_total_reward = 0
   alice_episode_length = 0
-  total_kl = 0
-  total_lso0 = 0
-  total_lso1 = 0
+  if alice.use_action_info: total_kl = 0
+  else: total_kl = None
+  if alice.use_state_info: total_lso = 0
+  else: total_lso = None
   draw_alice = True
   
   bob_done = False
@@ -108,12 +110,9 @@ def play(env, alice, bob, results = None,
       if alice.use_action_info:
         total_kl += alice.get_kl(state = alice_state, goal = goal)
       if alice.use_state_info:
-        total_lso1 += alice.get_log_state_odds(state = alice_state, goal = goal,
-                                               state_goal_counts = results.state_goal_counts,
-                                               next_state = next_alice_state)
-        ps_g = results.state_goal_counts[alice_state, goal] / np.sum(results.state_goal_counts[:,goal])
-        ps = np.sum(results.state_goal_counts[alice_state,:]) / np.sum(results.state_goal_counts)
-        total_lso0 += np.log2(ps_g/ps)
+        ps_g = state_goal_counts[alice_state, goal] / np.sum(state_goal_counts[:,goal])
+        ps = np.sum(state_goal_counts[alice_state,:]) / np.sum(state_goal_counts)
+        total_lso += np.log2(ps_g/ps)
         
       alice_total_reward += alice_reward
       alice_episode_length = t
@@ -126,8 +125,12 @@ def play(env, alice, bob, results = None,
     
     # draw env with alice step
     if draw_alice:
-      print('alice step %i: reward = %i, tot kl = %.2f, tot lso0 = %.2f, tot lso1 = %.2f, action: %s' %
-            (t, alice_total_reward, total_kl, total_lso0, total_lso1, env.index_to_action[alice_action]))
+      if total_kl is not None: kl_str = ', tot kl = %.2f' % total_kl
+      else: kl_str = ''
+      if total_lso is not None: lso_str = ', tot lso = %.2f' % total_lso
+      else: lso_str = ''
+      print('alice step %i: reward = %i%s%s, action: %s' %
+            (t, alice_total_reward, kl_str, lso_str, env.index_to_action[alice_action]))
       print('')
       alice_env._render(bob_state = bob_state)
       print('')
