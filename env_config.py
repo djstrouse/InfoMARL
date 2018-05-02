@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-experiment_name_ext = '_5x5'
+experiment_name_ext = '_8x4'
 
 # TwoGoalGridWorld environment variables
 EnvParam = namedtuple('EnvironmentParameters',
@@ -12,13 +12,13 @@ EnvParam = namedtuple('EnvironmentParameters',
                       'p_rand',
                       'goal_locs',
                       'goal_dist'])
-env_param = EnvParam(shape = [5,5],
+env_param = EnvParam(shape = [8,4],
                      r_correct = +1,
                      r_incorrect = -1,
                      r_step = 0.,
                      r_wall = -.1,
                      p_rand = 0,
-                     goal_locs = None,
+                     goal_locs = [1,2],
                      goal_dist = None)
 
 def get_config():

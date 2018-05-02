@@ -1,13 +1,13 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'bob_shared128_250k'
+experiment_name = 'bob_shared128_200k'
 
-alice_experiment = '2018_03_26_1407_alice_positive_cooperative_5x5'
+alice_experiment = 'job17338261_task60_2018_04_30_1604_alice_negative_state_competitive_500k_5x5'
 
 # justification for experiment
 '''
-testing code refactoring on 5x5
+running bob on alices trained with state info
 next exps: train longer, widen layers, deepen, REINFORCE -> actor-critic,
            switch between freeze RNN + train NN and train RNN + freeze NN,
            turn up value scale, epsilon exploration

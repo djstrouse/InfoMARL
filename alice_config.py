@@ -1,13 +1,13 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'alice_negative_competitive'
+experiment_name = 'alice_state_positive_cooperative'
 
 # justification for experiment
 '''
-testing state info optimization on vanilla 5x5 env
-troubleshooting: state info strength / schedule, discount factor, training time
-next: random transitions + interior goals = overshooting?
+trying to get alice to overshoot, so testing various reg strengths
+best info_reg strength: ~.025-.15 positive, ~.15-.35 negative 
+troubleshooting: state info strength / schedule, training time, discount info into future?
 '''
 
 # parameters to set up (fixed) computational graph
@@ -28,16 +28,17 @@ TrainingParam = namedtuple('TrainingParameters',
                            'state_count_discount',
                            'discount_factor',
                            'max_episode_length'])
-training_steps = 100000 # 100k
+training_steps = 500000 # 500k
 unregularized_steps = 10000 # 10k
+state_info_reg_strength = .15
 training_param = TrainingParam(training_steps = training_steps,
                                learning_rate = .025,
                                entropy_scale = log_decay(.5, .005, training_steps),
                                value_scale = .5,
                                action_info_scale = None,
-                               state_info_scale = [0]*unregularized_steps+[-.2]*int(training_steps-unregularized_steps),
-                               state_count_discount = .999,
-                               discount_factor = .85,
+                               state_info_scale = [0]*unregularized_steps+[state_info_reg_strength]*int(training_steps-unregularized_steps),
+                               state_count_discount = 1,
+                               discount_factor = .8,
                                max_episode_length = 100)
 
 def get_config():
