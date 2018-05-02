@@ -4,13 +4,15 @@ import copy
 from collections import namedtuple
 from play_episode import play
 
-EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards', 'episode_kls'])
+EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards',
+                                    'episode_lso', 'episode_action_kl',
+                                    'state_goal_counts'])
 Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'state',
                                            'value', 'action', 'reward', 'z'])
 
 def reinforce(env, alice, bob, training_steps, learning_rate,
               entropy_scale, value_scale, discount_factor,
-              max_episode_length, bob_goal_access = None,
+              max_episode_length, state_count_discount = 1, bob_goal_access = None,
               viz_episode_every = 1000, print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
@@ -46,12 +48,25 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
   success = True
 
   # Keeps track of useful statistics
+  if alice.use_action_info: init_kl = []
+  else: init_kl = None
+  if alice.use_state_info:
+    init_lso = []
+    init_count = 1
+    init_state_goal_counts = init_count * np.ones((env.nS, env.nG))
+  else:
+    init_lso = None
+    init_state_goal_counts = None
   alice_stats = EpisodeStats(episode_lengths = [],
                              episode_rewards = [],
-                             episode_kls = [])
+                             episode_action_kl = init_kl,
+                             episode_lso = init_lso,
+                             state_goal_counts = init_state_goal_counts)
   bob_stats = EpisodeStats(episode_lengths = [],
                            episode_rewards = [],
-                           episode_kls = None)
+                           episode_action_kl = None,
+                           episode_lso = None,
+                           state_goal_counts = None)
   
   # count total steps
   step_count = 0
@@ -73,6 +88,7 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
       print('----- EPISODE %i, STEP %i -----\n' % (i, step_count))
       play(env = env,
            alice = alice,
+           state_goal_counts = alice_stats.state_goal_counts,
            bob = bob,
            max_episode_length = max_episode_length,
            bob_goal_access = bob_goal_access)
@@ -80,6 +96,9 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
     # reset envs
     alice_state, goal = alice_env._reset()
     bob_state, _ = bob_env.set_goal(goal)
+    if alice.use_state_info:
+#      alice_stats.state_goal_counts *= state_count_discount
+      alice_stats.state_goal_counts[alice_state, goal] += 1
     
     # initialize alice and bob episode stat trackers
     alice_states = []
@@ -87,7 +106,10 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
     alice_done = False
     alice_episode_length = 0
     alice_total_reward = 0
-    total_kl = 0
+    if alice.use_action_info: total_action_kl = 0
+    else: total_action_kl = None
+    if alice.use_state_info: total_lso = 0
+    else: total_lso = None
     bob_episode = []
     bob_done = False
     bob_episode_length = 0
@@ -97,14 +119,19 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
     for t in itertools.count(start = 1):
       
       # first alice takes a step
-      if not alice_done:
-        alice_action_probs, alice_value, kl = alice.predict(alice_state, goal)
+      if not alice_done:        
+        alice_action_probs, alice_value = alice.predict(alice_state, goal)
         alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
         next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
         # update alice stats
         alice_total_reward += alice_reward
         alice_episode_length = t
-        total_kl += kl
+        if alice.use_action_info:
+          total_action_kl += alice.get_kl(state = alice_state, goal = goal)
+        if alice.use_state_info:
+          ps_g = alice_stats.state_goal_counts[alice_state, goal] / np.sum(alice_stats.state_goal_counts[:,goal])
+          ps = np.sum(alice_stats.state_goal_counts[alice_state,:]) / np.sum(alice_stats.state_goal_counts)
+          total_lso += np.log2(ps_g/ps)
       else: # if done, sit still
         alice_action = alice_env.action_to_index['STAY']
         next_alice_state = alice_state
@@ -152,9 +179,6 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
         print("\r{}/{} steps, last reward {}, step {} @ episode {}     ".format(
                 step_count, training_steps, last_bob_reward, t, i+1), end="")
         # sys.stdout.flush()
-  
-      # check if episode over
-      if (alice_done and bob_done) or t > max_episode_length: break
     
       # check if nans creeped in (to bob's action probabilities)
       if np.isnan(bob_action_probs).any():
@@ -163,6 +187,12 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
           
       alice_state = next_alice_state
       bob_state = next_bob_state
+      if alice.use_state_info:
+#        alice_stats.state_goal_counts *= state_count_discount
+        alice_stats.state_goal_counts[alice_state, goal] += 1
+      
+      # check if episode over
+      if (alice_done and bob_done) or t > max_episode_length: break
     
     # no more episodes if nans
     if not success: break
@@ -170,7 +200,8 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
     # otherwise, update episode stats
     alice_stats.episode_rewards.append(alice_total_reward)
     alice_stats.episode_lengths.append(alice_episode_length)
-    alice_stats.episode_kls.append(total_kl)
+    if alice.use_action_info: alice_stats.episode_action_kl.append(total_action_kl)
+    if alice.use_state_info: alice_stats.episode_lso.append(total_lso)
     bob_stats.episode_rewards.append(bob_total_reward)
     bob_stats.episode_lengths.append(bob_episode_length)
     last_bob_reward = bob_total_reward
