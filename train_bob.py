@@ -14,14 +14,14 @@ from agents.bob import RNNObserver
 from agents.alice import TabularREINFORCE
 from training.REINFORCE_bob import reinforce
 from plotting.plot_episode_stats import plot_episode_stats
+from util.stats import first_time_to
 
 Result = namedtuple('Result', ['alice', 'bob'])
-#Stats = namedtuple('Stats', ['episode_lengths',
-#                             'episode_rewards',
-#                             'episode_kls'])
 Stats = namedtuple('Stats', ['episode_lengths',
                              'episode_rewards',
-                             'episode_kls',
+                             'episode_action_kl',
+                             'episode_lso',
+                             'state_goal_counts',
                              'steps_per_reward',
                              'total_steps'])
 
@@ -99,7 +99,7 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
         print('Saving results in %s.' % directory)
         if not os.path.exists(directory+'bob/'): os.makedirs(directory+'bob/')
         save_path = saver.save(sess, directory+'bob/bob.ckpt')
-        print('Saved bob.')
+        print('Saved bob to %s.' % save_path)
       else:
         print('Unsucessful run - restarting.')
         f = open('error.txt','a')
@@ -113,16 +113,20 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
                                                             alice_stats.episode_rewards)
   a = Stats(episode_lengths = alice_stats.episode_lengths,
             episode_rewards = alice_stats.episode_rewards,
-            episode_kls = alice_stats.episode_kls,
-            steps_per_reward = alice_total_steps,
-            total_steps = alice_total_steps)
+            episode_action_kl = alice_stats.episode_action_kl,
+            episode_lso = alice_stats.episode_lso,
+            state_goal_counts = alice_stats.state_goal_counts,
+            steps_per_reward = alice_steps_per_reward,
+            total_steps = alice_total_steps)  
   print('Building Bob stats.')
   bob_total_steps, bob_steps_per_reward = first_time_to(bob_stats.episode_lengths,
                                                         bob_stats.episode_rewards)
   b = Stats(episode_lengths = bob_stats.episode_lengths,
             episode_rewards = bob_stats.episode_rewards,
-            episode_kls = bob_stats.episode_kls,
-            steps_per_reward = bob_total_steps,
+            episode_action_kl = None,
+            episode_lso = None,
+            state_goal_counts = None,
+            steps_per_reward = bob_steps_per_reward,
             total_steps = bob_total_steps)
   
   result = Result(alice = a, bob = b)
@@ -151,14 +155,14 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
                              tick_label = 40,
                              axis_label = 50,
                              title = 60)
-  avg_steps_per_reward, avg_steps_per_reward_alice = plot_episode_stats(result,
-                                                                        figure_sizes,
-                                                                        noshow = True,
-                                                                        directory = directory)
+  avg_steps_per_reward, avg_steps_per_reward_alice, action_info, state_info = plot_episode_stats(result,
+                                                                                                 figure_sizes,
+                                                                                                 noshow = True,
+                                                                                                 directory = directory)
   print('Figures saved.')
   print('\nAll results saved in {}'.format(directory))
   
-  return avg_steps_per_reward, avg_steps_per_reward_alice, experiment_name
+  return avg_steps_per_reward, avg_steps_per_reward_alice, action_info, state_info, experiment_name
 
 if __name__ == "__main__":
   train_bob()
