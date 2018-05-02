@@ -14,11 +14,13 @@ from agents.alice import TabularREINFORCE, get_values, get_kls, get_action_probs
 from training.REINFORCE_alice import reinforce
 from plotting.plot_episode_stats import plot_episode_stats
 from plotting.visualize_grid_world import plot_value_map, plot_kl_map, plot_lso_map, plot_state_densities, print_policy
+from util.stats import first_time_to
 
 Result = namedtuple('Result',
                    ['episode_lengths', 'episode_rewards', 'values',
                     'action_kls', 'log_state_odds',
-                    'action_probs', 'state_goal_counts'])
+                    'action_probs', 'state_goal_counts',
+                    'steps_per_reward', 'total_steps'])
 
 def train_alice(alice_config_ext = '', env_config_ext = '',
                 exp_name_ext = '', exp_name_prefix = '', results_directory = None):
@@ -102,14 +104,18 @@ def train_alice(alice_config_ext = '', env_config_ext = '',
         f.write("{}: experiment '{}' failed and reran\n".format(d, exp_name_prefix+experiment_name))
         f.close()
   
-  # save experiment stats
+  # save experiment stats  
+  total_steps, steps_per_reward = first_time_to(stats.episode_lengths,
+                                                stats.episode_rewards)
   result = Result(episode_lengths = stats.episode_lengths,
                   episode_rewards = stats.episode_rewards,
                   values = values,
                   action_kls = action_kls,
                   log_state_odds = lso,
                   action_probs = action_probs,
-                  state_goal_counts = stats.state_goal_counts)
+                  state_goal_counts = stats.state_goal_counts,
+                  steps_per_reward = steps_per_reward,
+                  total_steps = total_steps)
   if not os.path.exists(directory): os.makedirs(directory)
   with open(directory+'results.pkl', 'wb') as output:
     pickle.dump(result, output, pickle.HIGHEST_PROTOCOL)
@@ -126,7 +132,11 @@ def train_alice(alice_config_ext = '', env_config_ext = '',
                              tick_label = 40,
                              axis_label = 50,
                              title = 60)
-  steps_per_reward = plot_episode_stats(stats, figure_sizes, noshow = True, directory = directory)
+  
+  steps_per_reward, _, action_info, state_info  = plot_episode_stats(stats,
+                                                                     figure_sizes,
+                                                                     noshow = True,
+                                                                     directory = directory)
   k = 15
   print('')
   print('-'*k+'VALUES'+'-'*k)
@@ -148,7 +158,7 @@ def train_alice(alice_config_ext = '', env_config_ext = '',
   print('')
   print('FINISHED')
   
-  return steps_per_reward
+  return steps_per_reward, action_info, state_info, experiment_name
 
 if __name__ == "__main__":
   train_alice()
