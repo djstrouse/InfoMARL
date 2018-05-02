@@ -157,44 +157,38 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
         # UP
         if y == 0:
           ns_up = s
-          hit_wall = True
         else:
           ns_up = s - self.max_x
-          hit_wall = False
-          # RIGHT
+        # RIGHT
         if x == (self.max_x - 1):
           ns_right = s
-          hit_wall = True
         else:
           ns_right = s + 1
-          hit_wall = False
         # DOWN
         if y == (self.max_y - 1):
           ns_down = s
-          hit_wall = True
         else:
           ns_down = s + self.max_x
-          hit_wall = False
         # LEFT
         if x == 0:
           ns_left = s
-          hit_wall = True
         else:
           ns_left = s - 1
-          hit_wall = False
           
         # random transitions
-        rand_trans = [(self.p_rand/self.nA, ns_up, self._reward(ns_up, False), is_done(ns_up)),
-                      (self.p_rand/self.nA, ns_right, self._reward(ns_right, False), is_done(ns_right)),
-                      (self.p_rand/self.nA, ns_down, self._reward(ns_down, False), is_done(ns_down)),
-                      (self.p_rand/self.nA, ns_left, self._reward(ns_left, False), is_done(ns_left)),
-                      (self.p_rand/self.nA, s, self._reward(s, False), is_done(s))]
+        if self.p_rand > 0:
+          rand_trans = [(self.p_rand/self.nA, ns_up, self._reward(ns_up, False), is_done(ns_up)),
+                        (self.p_rand/self.nA, ns_right, self._reward(ns_right, False), is_done(ns_right)),
+                        (self.p_rand/self.nA, ns_down, self._reward(ns_down, False), is_done(ns_down)),
+                        (self.p_rand/self.nA, ns_left, self._reward(ns_left, False), is_done(ns_left)),
+                        (self.p_rand/self.nA, s, self._reward(s, False), is_done(s))]
+        else: rand_trans = []
         
         # action-dependent transition probabilities, including random transitions
-        P[s][UP] = [(1.0 - self.p_rand, ns_up, self._reward(ns_up, hit_wall), is_done(ns_up))] + rand_trans
-        P[s][RIGHT] = [(1.0 - self.p_rand, ns_right, self._reward(ns_right, hit_wall), is_done(ns_right))] + rand_trans
-        P[s][DOWN] = [(1.0 - self.p_rand, ns_down, self._reward(ns_down, hit_wall), is_done(ns_down))] + rand_trans
-        P[s][LEFT] = [(1.0 - self.p_rand, ns_left, self._reward(ns_left, hit_wall), is_done(ns_left))] + rand_trans
+        P[s][UP] = [(1.0 - self.p_rand, ns_up, self._reward(ns_up, ns_up==s), is_done(ns_up))] + rand_trans
+        P[s][RIGHT] = [(1.0 - self.p_rand, ns_right, self._reward(ns_right, ns_right==s), is_done(ns_right))] + rand_trans
+        P[s][DOWN] = [(1.0 - self.p_rand, ns_down, self._reward(ns_down, ns_down==s), is_done(ns_down))] + rand_trans
+        P[s][LEFT] = [(1.0 - self.p_rand, ns_left, self._reward(ns_left, ns_left==s), is_done(ns_left))] + rand_trans
         P[s][STAY] = [(1.0 - self.p_rand, s, self._reward(s, False), is_done(s))] + rand_trans
 
       it.iternext()
