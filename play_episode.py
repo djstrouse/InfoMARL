@@ -63,15 +63,20 @@ def play_from_directory(experiment_name):
     
   return
 
-def play(env, alice, bob, state_goal_counts = None,
+def play(env, alice, bob = None, state_goal_counts = None,
          max_episode_length = 100, bob_goal_access = None, gamma = None):
   # if alice.use_state_info, need to include her state_goal_counts
   
-  alice_env = env
-  bob_env = copy.copy(alice_env)
+  if type(env) == tuple: # for games where each agent has different env (e.g. KeyGame)
+    alice_env = env[0]
+    bob_env = env[1]
+  else: # for games where agents use same env (e.g. TwoGoalGridWorld)
+    alice_env = env
+    if bob: bob_env = copy.copy(alice_env)
   
   alice_state, goal = alice_env._reset()
-  bob_state, _ = bob_env.set_goal(goal)
+  if bob: bob_state, _ = bob_env.set_goal(goal)
+  else: bob_state = None
   
   alice_states = []
   alice_actions = []
@@ -84,15 +89,26 @@ def play(env, alice, bob, state_goal_counts = None,
   else: total_lso = None
   draw_alice = True
   
-  bob_done = False
-  bob_rewards = []
-  bob_total_reward = 0
-  bob_episode_length = 0
-  draw_bob = True
+  if bob: 
+    bob_done = False
+    bob_rewards = []
+    bob_total_reward = 0
+    bob_episode_length = 0
+    draw_bob = True
+  else:
+    bob_done = True
+    draw_bob = False
   
   # draw initial env
   print('')
-  alice_env._render(bob_state = bob_state)
+  if type(env) == tuple:
+    print('alice')
+    alice_env._render()
+    print('')
+    print('bob')
+    bob_env._render()
+  else:
+    alice_env._render(bob_state = bob_state)    
   print('')
   
   # one step in the environment
@@ -102,7 +118,7 @@ def play(env, alice, bob, state_goal_counts = None,
     if not alice_done:
       
       # take a step
-      alice_action_probs, alice_value = alice.predict(alice_state, goal)
+      alice_action_probs, alice_value, alice_logits = alice.predict(alice_state, goal)
       alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
       next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
 
@@ -129,10 +145,27 @@ def play(env, alice, bob, state_goal_counts = None,
       else: kl_str = ''
       if total_lso is not None: lso_str = ', tot lso = %.2f' % total_lso
       else: lso_str = ''
-      print('alice step %i: reward = %i%s%s, action: %s' %
-            (t, alice_total_reward, kl_str, lso_str, env.index_to_action[alice_action]))
+      if str(alice_env) == 'KeyGame': key_str = ', key = {}'.format(alice_env.state_to_key[alice_state])
+      else: key_str = ''
+      print('alice step %i: reward = %.1f%s%s%s, action: %s' %
+            (t, alice_reward, kl_str, lso_str, key_str, alice_env.index_to_action[alice_action]))
+      print('policy: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
+            (alice_action_probs[alice_env.action_to_index['LEFT']],
+             alice_action_probs[alice_env.action_to_index['UP']],
+             alice_action_probs[alice_env.action_to_index['RIGHT']],
+             alice_action_probs[alice_env.action_to_index['DOWN']],
+             alice_action_probs[alice_env.action_to_index['STAY']]))
+      print('logits: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
+            (alice_logits[alice_env.action_to_index['LEFT']],
+             alice_logits[alice_env.action_to_index['UP']],
+             alice_logits[alice_env.action_to_index['RIGHT']],
+             alice_logits[alice_env.action_to_index['DOWN']],
+             alice_logits[alice_env.action_to_index['STAY']]))
       print('')
-      alice_env._render(bob_state = bob_state)
+      if type(env) == tuple:
+        alice_env._render()
+      else:
+        alice_env._render(bob_state = bob_state)
       print('')
       if alice_done: draw_alice = False # only draw alice step first step after done
       
@@ -167,22 +200,27 @@ def play(env, alice, bob, state_goal_counts = None,
     # draw env with bob step
     if draw_bob:
       if bob_goal_access is not None: z = z[0]
-      print('bob step %i: reward = %i, value = %.2f, rnn latent = %.2f, action: %s' %
-            (t, bob_total_reward, bob_value, z, env.index_to_action[bob_action]))
+      if str(bob_env) == 'KeyGame': key_str = ', key = {}'.format(bob_env.state_to_key[bob_state])
+      else: key_str = ''
+      print('bob step %i: reward = %i, value = %.2f, rnn latent = %.2f%s, action: %s' %
+            (t, bob_total_reward, bob_value, z, key_str, bob_env.index_to_action[bob_action]))
       print('policy: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
-            (bob_action_probs[env.action_to_index['LEFT']],
-             bob_action_probs[env.action_to_index['UP']],
-             bob_action_probs[env.action_to_index['RIGHT']],
-             bob_action_probs[env.action_to_index['DOWN']],
-             bob_action_probs[env.action_to_index['STAY']]))
+            (bob_action_probs[bob_env.action_to_index['LEFT']],
+             bob_action_probs[bob_env.action_to_index['UP']],
+             bob_action_probs[bob_env.action_to_index['RIGHT']],
+             bob_action_probs[bob_env.action_to_index['DOWN']],
+             bob_action_probs[bob_env.action_to_index['STAY']]))
       print('logits: L = %.2f, U = %.2f, R = %.2f, D = %.2f, S = %.2f' %
-            (logits[env.action_to_index['LEFT']],
-             logits[env.action_to_index['UP']],
-             logits[env.action_to_index['RIGHT']],
-             logits[env.action_to_index['DOWN']],
-             logits[env.action_to_index['STAY']]))
+            (logits[bob_env.action_to_index['LEFT']],
+             logits[bob_env.action_to_index['UP']],
+             logits[bob_env.action_to_index['RIGHT']],
+             logits[bob_env.action_to_index['DOWN']],
+             logits[bob_env.action_to_index['STAY']]))
       print('')
-      alice_env._render(bob_state = next_bob_state)
+      if type(env) == tuple:
+        bob_env._render()
+      else:
+        alice_env._render(bob_state = next_bob_state)
       print('')
       if bob_done: draw_bob = False # only draw bob step first step after done
 

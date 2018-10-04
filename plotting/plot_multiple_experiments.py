@@ -124,7 +124,9 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
     c = colors[n]
     l = labels[n]
     d = list_of_directories[n]
-    total_steps, steps_per_reward = first_time_to(r.bob.episode_lengths, r.bob.episode_rewards)
+#    total_steps, steps_per_reward = first_time_to(r.bob.episode_lengths, r.bob.episode_rewards)
+    total_steps = r.bob.total_steps
+    steps_per_reward = r.bob.steps_per_reward
     steps_per_reward_smoothed = pd.Series(steps_per_reward).rolling(window, min_periods = window).mean()
     plt.plot(total_steps, steps_per_reward_smoothed,
              color = c, linestyle = '-', label = l, linewidth = 8)
@@ -139,7 +141,7 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
                 color = c, linestyle = '--', label = None, linewidth = 8)
   plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
   plt.ylabel("Time Steps per Reward", fontsize = figure_sizes.axis_label)
-  plt.title("Steps per Reward over Time (Smoothed over approximately {} episodes)".format(window), fontsize = figure_sizes.title) 
+#  plt.title("Steps per Reward over Time (Smoothed over approximately {} episodes)".format(window), fontsize = figure_sizes.title) 
   #plt.xlim((0, np.min(total_steps)))
   _, ymax = plt.gca().get_ylim()
   plt.ylim(0, min(2*average_steps_per_reward,ymax))
@@ -167,7 +169,7 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
              color = c, linestyle = '-', label = l, linewidth = 8)
   plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
   plt.ylabel("Bob Normalized Episode Length", fontsize = figure_sizes.axis_label)
-  plt.title("Bob Steps per Reward / Alice's Average (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+#  plt.title("Bob Steps per Reward / Alice's Average (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
   #plt.xlim((0, np.min(total_steps)))
   #_, ymax = plt.gca().get_ylim()
   plt.ylim((.95, 2))
@@ -188,16 +190,17 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
     l = labels[n]
     d = list_of_directories[n]
     bob_beats_alice = np.array(r.bob.episode_lengths) < np.array(r.alice.episode_lengths)
+    bob_beats_alice[np.array(r.bob.episode_rewards)<0] = 0 # filter out episodes where bob goes to wrong goal
     bob_win_percentage = pd.Series(bob_beats_alice).rolling(window, min_periods = window).mean()
     total_steps = np.cumsum(r.bob.episode_lengths)
     plt.plot(total_steps, bob_win_percentage,
              color = c, linestyle = '-', label = l, linewidth = 8)
   plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
   plt.ylabel("% of time Bob beats Alice to goal", fontsize = figure_sizes.axis_label)
-  plt.title("Bob's Win Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+#  plt.title("Bob's Win Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
   #plt.xlim((0, np.min(total_steps)))
   #_, ymax = plt.gca().get_ylim()
-  plt.ylim((0, .5))
+  plt.ylim((0, 1))
   plt.legend(loc = 'upper left', fontsize = figure_sizes.axis_label)
   plt.tick_params(labelsize = figure_sizes.tick_label)  
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_percentage.eps', format='eps')
@@ -215,16 +218,17 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
     l = labels[n]
     d = list_of_directories[n]
     bob_beats_alice = np.array(r.bob.episode_lengths) <= np.array(r.alice.episode_lengths)
+    bob_beats_alice[np.array(r.bob.episode_rewards)<0] = 0 # filter out episodes where bob goes to wrong goal
     bob_win_percentage = pd.Series(bob_beats_alice).rolling(window, min_periods = window).mean()
     total_steps = np.cumsum(r.bob.episode_lengths)
     plt.plot(total_steps, bob_win_percentage,
              color = c, linestyle = '-', label = l, linewidth = 8)
   plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
   plt.ylabel("% of time Bob beats/ties Alice to goal", fontsize = figure_sizes.axis_label)
-  plt.title("Bob's Win+Tie Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
+#  plt.title("Bob's Win+Tie Percentage (Smoothed over ~{} episodes)".format(window), fontsize = figure_sizes.title) 
   #plt.xlim((0, np.min(total_steps)))
   #_, ymax = plt.gca().get_ylim()
-  plt.ylim((0, .7))
+  plt.ylim((0, 1))
   plt.legend(loc = 'upper left', fontsize = figure_sizes.axis_label)
   plt.tick_params(labelsize = figure_sizes.tick_label)  
   plt.savefig(os.getcwd()+'/results/'+collection_name+'_bob_win_tie_percentage.eps', format='eps')
@@ -237,58 +241,80 @@ def plot_multiple_experiments(list_of_directories, exp_names_and_colors,
     
 if __name__ == "__main__":
   figure_sizes = FigureSizes(figure = (50,25),
-                             tick_label = 40,
-                             axis_label = 50,
-                             title = 60)
-#  list_of_directories = ['job16329146_task1_2018_03_03_175227_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16329146_task10_2018_03_03_175618_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16329146_task28_2018_03_03_180353_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16329146_task35_2018_03_03_175949_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16329146_task43_2018_03_03_180523_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16329146_task54_2018_03_03_180637_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16329146_task61_2018_03_03_181125_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16329146_task72_2018_03_03_181107_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16329146_task80_2018_03_03_181246_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16329146_task99_2018_03_03_181504_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16329146_task108_2018_03_03_181827_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16329146_task116_2018_03_03_181731_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16329146_task126_2018_03_03_181546_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16329146_task137_2018_03_03_181458_bob_with_ambivalent_alice_shared128_200k_5x5']
-#  list_of_directories = ['job16332603_task5_2018_03_03_211828_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16332603_task10_2018_03_03_212312_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16332603_task23_2018_03_03_211523_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16332603_task35_2018_03_03_211631_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16332603_task49_2018_03_03_211433_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16332603_task55_2018_03_03_211915_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16332603_task69_2018_03_03_211400_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16332603_task77_2018_03_03_211647_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16332603_task85_2018_03_03_211755_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16332603_task96_2018_03_03_211543_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16332603_task104_2018_03_03_211550_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16332603_task118_2018_03_03_211436_bob_with_competitive_alice_shared128_200k_5x5',
-#                         'job16332603_task123_2018_03_03_211520_bob_with_cooperative_alice_shared128_200k_5x5',
-#                         'job16332603_task135_2018_03_03_211653_bob_with_ambivalent_alice_shared128_200k_5x5',
-#                         'job16332603_task140_2018_03_03_211811_bob_with_competitive_alice_shared128_200k_5x5']
-  list_of_directories = ['job17355731_task2_2018_05_01_192933_bob_with_competitive_state_alice_shared128_200k_5x5',
-                         'job17355731_task10_2018_05_01_192922_bob_with_competitive_state_alice_shared128_200k_5x5',
-                         'job17355731_task23_2018_05_01_192510_bob_with_competitive_state_alice_shared128_200k_5x5',
-                         'job17355731_task32_2018_05_01_192956_bob_with_competitive_state_alice_shared128_200k_5x5',
-                         'job17355731_task40_2018_05_01_192944_bob_with_competitive_state_alice_shared128_200k_5x5',
-                         'job17355731_task50_2018_05_01_193202_bob_with_cooperative_state_alice_shared128_200k_5x5',
-                         'job17355731_task60_2018_05_01_193344_bob_with_cooperative_state_alice_shared128_200k_5x5',
-                         'job17355731_task79_2018_05_01_193656_bob_with_cooperative_state_alice_shared128_200k_5x5',
-                         'job17355731_task84_2018_05_01_193632_bob_with_cooperative_state_alice_shared128_200k_5x5',
-                         'job17355731_task95_2018_05_01_193737_bob_with_cooperative_state_alice_shared128_200k_5x5',
-                         'job17355731_task101_2018_05_01_193745_bob_with_ambivalent_state_alice_shared128_200k_5x5',
-                         'job17355731_task117_2018_05_01_194253_bob_with_ambivalent_state_alice_shared128_200k_5x5',
-                         'job17355731_task121_2018_05_01_194457_bob_with_ambivalent_state_alice_shared128_200k_5x5',
-                         'job17355731_task132_2018_05_01_194412_bob_with_ambivalent_state_alice_shared128_200k_5x5',
-                         'job17355731_task142_2018_05_01_194631_bob_with_ambivalent_state_alice_shared128_200k_5x5']
+                             tick_label = 60,
+                             axis_label = 80,
+                             title = 80)
+#  collection_name = '5x5_actioninfo_200k_bestof10'
+#  list_of_directories = ['job17566680_task1_2018_05_16_151657_bob_with_cooperative_action_alice_200k_5x5',
+#                         'job17566680_task14_2018_05_16_152001_bob_with_cooperative_action_alice_200k_5x5',
+#                         'job17566680_task27_2018_05_16_151939_bob_with_cooperative_action_alice_200k_5x5',
+#                         'job17566680_task31_2018_05_16_151924_bob_with_cooperative_action_alice_200k_5x5',
+#                         'job17566680_task40_2018_05_16_152223_bob_with_cooperative_action_alice_200k_5x5',
+#                         'job17566680_task104_2018_05_16_152945_bob_with_ambivalent_action_alice_200k_5x5',
+#                         'job17566680_task116_2018_05_16_153315_bob_with_ambivalent_action_alice_200k_5x5',
+#                         'job17566680_task122_2018_05_16_153350_bob_with_ambivalent_action_alice_200k_5x5',
+#                         'job17566680_task133_2018_05_16_153843_bob_with_ambivalent_action_alice_200k_5x5',
+#                         'job17566680_task143_2018_05_16_153701_bob_with_ambivalent_action_alice_200k_5x5',
+#                         'job17566680_task54_2018_05_16_152719_bob_with_competitive_action_alice_200k_5x5',
+#                         'job17566680_task66_2018_05_16_152320_bob_with_competitive_action_alice_200k_5x5',
+#                         'job17566680_task75_2018_05_16_152618_bob_with_competitive_action_alice_200k_5x5',
+#                         'job17566680_task83_2018_05_16_152834_bob_with_competitive_action_alice_200k_5x5',
+#                         'job17566680_task92_2018_05_16_152923_bob_with_competitive_action_alice_200k_5x5']
+#  collection_name = '5x5_stateinfo_200k_bestof10'
+#  list_of_directories = ['job17556031_task0_2018_05_16_012805_bob_with_cooperative_state_alice_200k_5x5',
+#                         'job17556031_task10_2018_05_16_012702_bob_with_cooperative_state_alice_200k_5x5',
+#                         'job17556031_task20_2018_05_16_013141_bob_with_cooperative_state_alice_200k_5x5',
+#                         'job17556031_task30_2018_05_16_013110_bob_with_cooperative_state_alice_200k_5x5',
+#                         'job17556031_task40_2018_05_16_013010_bob_with_cooperative_state_alice_200k_5x5',
+#                         'job17556031_task102_2018_05_16_014647_bob_with_ambivalent_state_alice_200k_5x5',
+#                         'job17556031_task113_2018_05_16_014301_bob_with_ambivalent_state_alice_200k_5x5',
+#                         'job17556031_task129_2018_05_16_014934_bob_with_ambivalent_state_alice_200k_5x5',
+#                         'job17556031_task133_2018_05_16_015016_bob_with_ambivalent_state_alice_200k_5x5',
+#                         'job17556031_task140_2018_05_16_014802_bob_with_ambivalent_state_alice_200k_5x5',
+#                         'job17556031_task55_2018_05_16_013655_bob_with_competitive_state_alice_200k_5x5',
+#                         'job17556031_task63_2018_05_16_013841_bob_with_competitive_state_alice_200k_5x5',
+#                         'job17556031_task74_2018_05_16_013701_bob_with_competitive_state_alice_200k_5x5',
+#                         'job17556031_task81_2018_05_16_014236_bob_with_competitive_state_alice_200k_5x5',
+#                         'job17556031_task96_2018_05_16_014304_bob_with_competitive_state_alice_200k_5x5']
+  
+#  collection_name = 'keygame_actioninfo_beta.2_discount.8_200k_bestof10'
+#  list_of_directories = ['job17587428_task50_2018_05_17_215722_bob_with_cooperative_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task60_2018_05_17_215909_bob_with_cooperative_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task71_2018_05_17_220115_bob_with_cooperative_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task80_2018_05_17_215810_bob_with_cooperative_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task90_2018_05_17_220433_bob_with_cooperative_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task100_2018_05_17_220219_bob_with_ambivalent_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task109_2018_05_17_220842_bob_with_ambivalent_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task120_2018_05_17_220831_bob_with_ambivalent_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task130_2018_05_17_221559_bob_with_ambivalent_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task144_2018_05_17_221123_bob_with_ambivalent_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task1_2018_05_17_223345_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task11_2018_05_17_220950_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task25_2018_05_17_220903_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task36_2018_05_17_221015_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+#                         'job17587428_task40_2018_05_17_220210_bob_with_competitive_action_alice_discount0.8_200k_KeyGame']
+
+  collection_name = 'keygame_actioninfo_beta.25_discount.8_200k_bestof10'
+  list_of_directories = ['job17587428_task350_2018_05_17_231018_bob_with_cooperative_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task360_2018_05_17_231035_bob_with_cooperative_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task370_2018_05_17_231619_bob_with_cooperative_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task380_2018_05_17_231855_bob_with_cooperative_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task390_2018_05_17_231730_bob_with_cooperative_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task400_2018_05_17_232402_bob_with_ambivalent_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task410_2018_05_17_232046_bob_with_ambivalent_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task420_2018_05_17_232249_bob_with_ambivalent_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task430_2018_05_17_232421_bob_with_ambivalent_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task440_2018_05_17_232741_bob_with_ambivalent_state_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task309_2018_05_17_224836_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task317_2018_05_17_224941_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task320_2018_05_17_225252_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task335_2018_05_17_231437_bob_with_competitive_action_alice_discount0.8_200k_KeyGame',
+                         'job17587428_task348_2018_05_17_230533_bob_with_competitive_action_alice_discount0.8_200k_KeyGame']
+
 
   exp_names_and_colors = {'cooperative': 'r',
                           'ambivalent': 'b',
                           'competitive': 'g'}
-  collection_name = '5x5_stateinfo_shared128_200k_bestof10'
   fig = plot_multiple_experiments(list_of_directories = list_of_directories,
                                  exp_names_and_colors = exp_names_and_colors,
                                  figure_sizes = figure_sizes,

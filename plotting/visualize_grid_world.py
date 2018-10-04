@@ -1,6 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import pickle
+import imp
+import os
+from collections import namedtuple
+from envs.TwoGoalGridWorld import TwoGoalGridWorld
 
 def build_grid(grid_size, coord_to_state, metrics, wall_value, skip_value, skip_coord = []):
   """Takes state/goal dependent metrics and represents them on a printable grid."""
@@ -144,6 +149,27 @@ def plot_lso_map(lsos, action_probs, env, figure_sizes, noshow = False, director
       plt.savefig(directory+'lsos'+ext+'.png', format='png')
   if noshow: plt.close(fig)
   else: plt.show(block = False)
+  
+  # now the absolute values
+  colors = np.vstack((colors, colors))
+  fig, axes = plt.subplots(ncols = env.nG, figsize = figure_sizes.figure, sharex = True, sharey = True)
+  goal = 0
+  for ax in axes.flat:
+    im = fill_subplot(ax, goal, env.shape, env.coord_to_state, env.goal_locs,
+                      abs(lsos[:,goal]), max_value, action_probs[:,goal,:],
+                      env.action_to_index, colors)
+    goal += 1
+  cbar = fig.colorbar(im, ax = axes.ravel().tolist(), shrink = 0.75,
+                      boundaries = np.linspace(0, max_value, 101),
+                      ticks = np.linspace(0, 1, 5))
+  cbar.ax.tick_params(labelsize = figure_sizes.tick_label)
+  #plt.suptitle('I(state;goal)', fontsize = figure_sizes.title)
+  if directory:
+      plt.savefig(directory+'alsos'+ext+'.eps', format='eps')
+      plt.savefig(directory+'alsos'+ext+'.pdf', format='pdf')
+      plt.savefig(directory+'alsos'+ext+'.png', format='png')
+  if noshow: plt.close(fig)
+  else: plt.show(block = False)
 
 def plot_state_densities(state_goal_counts, action_probs, env, figure_sizes, noshow = False, directory = None):
   """Visualizes state densities and policy overlaid, for all goals."""
@@ -190,3 +216,57 @@ def print_policy(action_probs, env):
       else:
         print('state %i @ (%i,%i): terminal state' %
               (s, env.state_to_coord[s][0], env.state_to_coord[s][1]))
+        
+        
+if __name__ == "__main__":
+  
+  experiment = 'job17553636_task54_2018_05_15_2220_alice_unregularized_state_ambivalent_250k_5x5'
+  
+  # load from directory
+  os.chdir("..")
+  directory = os.getcwd()+'/results/'+experiment+'/'
+  r = pickle.load(open(directory+'results.pkl','rb'))
+  values = r.values
+  action_probs = r.action_probs
+  action_kls = r.action_kls
+  lso = r.log_state_odds
+  state_goal_counts = r.state_goal_counts
+  # load env
+  env_config = imp.load_source('env_config', directory+'env_config.py')
+  env_type, env_param, env_exp_name_ext = env_config.get_config()
+  if env_type == 'grid':
+    env = TwoGoalGridWorld(shape = env_param.shape,
+                           r_correct = env_param.r_correct,
+                           r_incorrect = env_param.r_incorrect,
+                           r_step = env_param.r_step,
+                           r_wall = env_param.r_wall,
+                           p_rand = env_param.p_rand,
+                           goal_locs = env_param.goal_locs,
+                           goal_dist = env_param.goal_dist)
+  else:
+    raise ValueError('Invalid env.')
+  
+  # figure sizes
+  FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
+  figure_sizes = FigureSizes(figure = (50,25),
+                             tick_label = 40,
+                             axis_label = 50,
+                             title = 60)
+  # do the plots
+  k = 15
+  print('-'*k+'VALUES'+'-'*k)
+  plot_value_map(values, action_probs, env, figure_sizes, noshow = True, directory = directory)
+  if action_kls is not None:
+    print('')
+    print('-'*k+'KLS'+'-'*k)
+    plot_kl_map(action_kls, action_probs, env, figure_sizes, noshow = True, directory = directory)
+  if lso is not None:
+    print('')
+    print('-'*k+'LSOS'+'-'*k)
+    plot_lso_map(lso, action_probs, env, figure_sizes, noshow = True, directory = directory)
+    print('')
+    print('-'*k+'STATE DENSITIES'+'-'*k)
+    plot_state_densities(state_goal_counts, action_probs, env, figure_sizes, noshow = True, directory = directory)
+  print('')
+  print('-'*k+'POLICY'+'-'*k)
+  print_policy(action_probs, env)

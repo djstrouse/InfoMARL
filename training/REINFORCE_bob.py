@@ -6,14 +6,14 @@ from play_episode import play
 
 EpisodeStats = namedtuple('Stats', ['episode_lengths', 'episode_rewards',
                                     'episode_lso', 'episode_action_kl',
-                                    'state_goal_counts'])
+                                    'episode_keys', 'state_goal_counts'])
 Bobservation = namedtuple('Bobservation', ['alice_states', 'alice_actions', 'state',
                                            'value', 'action', 'reward', 'z'])
 
 def reinforce(env, alice, bob, training_steps, learning_rate,
               entropy_scale, value_scale, discount_factor,
               max_episode_length, state_count_discount = 1, bob_goal_access = None,
-              viz_episode_every = 1000, print_updates = False):
+              viz_episode_every = 500, print_updates = False):
   """
   REINFORCE (Monte Carlo Policy Gradient) Algorithm for a two-agent system,
   in which the alice is considered part of the environment for bob.
@@ -46,6 +46,14 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
   # flag that tells caller of function whether or not the run had to exit early
   #   due to nans; useful for triggering retraining with new init
   success = True
+  
+  # each agent needs own copy of env
+  if type(env) == tuple: # different versions of env for KeyGame
+    alice_env = env[0]
+    bob_env = env[1]
+  elif str(env) == 'TwoGoalGridWorld':
+    alice_env = env
+    bob_env = copy.copy(alice_env)
 
   # Keeps track of useful statistics
   if alice.use_action_info: init_kl = []
@@ -57,24 +65,25 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
   else:
     init_lso = None
     init_state_goal_counts = None
+  if str(alice_env) == 'KeyGame':
+    episode_keys = []
+  else:
+    episode_keys = None
   alice_stats = EpisodeStats(episode_lengths = [],
                              episode_rewards = [],
+                             episode_keys = episode_keys,
                              episode_action_kl = init_kl,
                              episode_lso = init_lso,
                              state_goal_counts = init_state_goal_counts)
   bob_stats = EpisodeStats(episode_lengths = [],
                            episode_rewards = [],
+                           episode_keys = episode_keys,
                            episode_action_kl = None,
                            episode_lso = None,
-                           state_goal_counts = None)
-  
+                           state_goal_counts = None)  
   # count total steps
   step_count = 0
   last_bob_reward = 0
-  
-  # each agent needs own copy of env
-  alice_env = env
-  bob_env = copy.copy(alice_env)
   
   # iterate over episodes
   for i in itertools.count(start = 0):
@@ -120,7 +129,7 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
       
       # first alice takes a step
       if not alice_done:        
-        alice_action_probs, alice_value = alice.predict(alice_state, goal)
+        alice_action_probs, alice_value, alice_logits = alice.predict(alice_state, goal)
         alice_action = np.random.choice(np.arange(len(alice_action_probs)), p = alice_action_probs)
         next_alice_state, alice_reward, alice_done, _ = alice_env.step(alice_action)
         # update alice stats
@@ -205,6 +214,9 @@ def reinforce(env, alice, bob, training_steps, learning_rate,
     bob_stats.episode_rewards.append(bob_total_reward)
     bob_stats.episode_lengths.append(bob_episode_length)
     last_bob_reward = bob_total_reward
+    if str(bob_env) == 'KeyGame':
+      alice_stats.episode_keys.append(alice_env.state_to_key[alice_state])
+      bob_stats.episode_keys.append(bob_env.state_to_key[bob_state])
   
     # go through the episode and make policy updates
     for t, transition in enumerate(bob_episode):

@@ -10,6 +10,7 @@ from collections import namedtuple
 from shutil import copy
 if "../" not in sys.path: sys.path.append("../") 
 from envs.TwoGoalGridWorld import TwoGoalGridWorld
+from envs.KeyGame import KeyGame
 from agents.bob import RNNObserver
 from agents.alice import TabularREINFORCE
 from training.REINFORCE_bob import reinforce
@@ -19,6 +20,7 @@ from util.stats import first_time_to
 Result = namedtuple('Result', ['alice', 'bob'])
 Stats = namedtuple('Stats', ['episode_lengths',
                              'episode_rewards',
+                             'episode_keys',
                              'episode_action_kl',
                              'episode_lso',
                              'state_goal_counts',
@@ -31,6 +33,7 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
   if results_directory is None: results_directory = os.getcwd()+'/results/'
   
   # import bob
+  local_dir = os.getcwd()
   config = importlib.import_module('bob_config'+bob_config_ext)
   agent_param, training_param, experiment_name, alice_experiment = config.get_config()
   print('Imported Bob.')
@@ -42,17 +45,49 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
   print('Imported Alice.')
   
   # import and init env
-  env_config = imp.load_source('env_config', alice_directory+'env_config.py')
-  env_param, env_exp_name_ext = env_config.get_config()
+  alice_env_config = imp.load_source('env_config', alice_directory+'env_config.py')
+  env_type, env_param, env_exp_name_ext = alice_env_config.get_config()
+  if env_type == 'key': # separately load env param for alice and bob
+    alice_env_param = env_param
+    bob_env_config = imp.load_source('env_config', local_dir+'/env_config.py')
+    _, bob_env_param, _ = bob_env_config.get_config()
   experiment_name = experiment_name + env_exp_name_ext + exp_name_ext
-  env = TwoGoalGridWorld(shape = env_param.shape,
-                         r_correct = env_param.r_correct,
-                         r_incorrect = env_param.r_incorrect,
-                         r_step = env_param.r_step,
-                         r_wall = env_param.r_wall,
-                         p_rand = env_param.p_rand,
-                         goal_locs = env_param.goal_locs,
-                         goal_dist = env_param.goal_dist)
+  if env_type == 'grid':
+    env = TwoGoalGridWorld(shape = env_param.shape,
+                           r_correct = env_param.r_correct,
+                           r_incorrect = env_param.r_incorrect,
+                           r_step = env_param.r_step,
+                           r_wall = env_param.r_wall,
+                           p_rand = env_param.p_rand,
+                           goal_locs = env_param.goal_locs,
+                           goal_dist = env_param.goal_dist)
+    alice_env = env
+    bob_env = env
+  elif env_type == 'key':
+    alice_env = KeyGame(shape = alice_env_param.shape,
+                        r_correct = alice_env_param.r_correct,
+                        r_incorrect = alice_env_param.r_incorrect,
+                        r_step = alice_env_param.r_step,
+                        r_wall = alice_env_param.r_wall,
+                        p_rand = alice_env_param.p_rand,
+                        spawn_locs = alice_env_param.spawn_locs,
+                        spawn_dist = alice_env_param.spawn_dist,
+                        goal_locs = alice_env_param.goal_locs,
+                        goal_dist = alice_env_param.goal_dist,
+                        key_locs = alice_env_param.key_locs,
+                        master_key_locs = alice_env_param.master_key_locs)
+    bob_env = KeyGame(shape = bob_env_param.shape,
+                      r_correct = bob_env_param.r_correct,
+                      r_incorrect = bob_env_param.r_incorrect,
+                      r_step = bob_env_param.r_step,
+                      r_wall = bob_env_param.r_wall,
+                      p_rand = bob_env_param.p_rand,
+                      spawn_locs = bob_env_param.spawn_locs,
+                      spawn_dist = bob_env_param.spawn_dist,
+                      goal_locs = bob_env_param.goal_locs,
+                      goal_dist = bob_env_param.goal_dist,
+                      key_locs = bob_env_param.key_locs,
+                      master_key_locs = bob_env_param.master_key_locs)
   print('Imported environment.')
    
   # run training, and if nans, creep in, train again until they don't
@@ -62,13 +97,14 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
     # initialize alice and bob using configs
     tf.reset_default_graph()
     #global_step = tf.Variable(0, name = "global_step", trainable = False)    
-    with tf.variable_scope('alice'):  
-      alice = TabularREINFORCE(env,
+    with tf.variable_scope('alice'):
+      alice = TabularREINFORCE(env = alice_env,
                                use_action_info = alice_agent_param.use_action_info,
                                use_state_info = alice_agent_param.use_state_info)
       alice_saver = tf.train.Saver()
     with tf.variable_scope('bob'):
-      bob = RNNObserver(env = env,
+      bob = RNNObserver(alice_env = alice_env,
+                        bob_env = bob_env,
                         shared_layer_sizes = agent_param.shared_layer_sizes,
                         policy_layer_sizes = agent_param.policy_layer_sizes,
                         value_layer_sizes = agent_param.value_layer_sizes,
@@ -81,6 +117,8 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
       sess.run(tf.global_variables_initializer())
       alice_saver.restore(sess, alice_directory+'alice.ckpt')
       print('Loaded trained Alice.')
+      if env_type == 'key': env = (alice_env, bob_env)
+      elif env_type == 'grid': env = alice_env
       alice_stats, bob_stats, success = reinforce(env = env,
                                                   alice = alice,
                                                   bob = bob,
@@ -113,6 +151,7 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
                                                             alice_stats.episode_rewards)
   a = Stats(episode_lengths = alice_stats.episode_lengths,
             episode_rewards = alice_stats.episode_rewards,
+            episode_keys = alice_stats.episode_keys,
             episode_action_kl = alice_stats.episode_action_kl,
             episode_lso = alice_stats.episode_lso,
             state_goal_counts = alice_stats.state_goal_counts,
@@ -123,6 +162,7 @@ def train_bob(bob_config_ext = '', exp_name_ext = '', exp_name_prefix = '',
                                                         bob_stats.episode_rewards)
   b = Stats(episode_lengths = bob_stats.episode_lengths,
             episode_rewards = bob_stats.episode_rewards,
+            episode_keys = bob_stats.episode_keys,
             episode_action_kl = None,
             episode_lso = None,
             state_goal_counts = None,

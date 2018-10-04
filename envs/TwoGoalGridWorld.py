@@ -122,6 +122,9 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
     
     return reward
   
+  def __str__(self):
+    return 'TwoGoalGridWorld'
+  
   def _reset(self, goal = None):
     """Overwrites inherited reset to: sample goal, build transition matrix,
     initialize state, and return goal."""
@@ -239,3 +242,25 @@ class TwoGoalGridWorld(discrete.DiscreteEnv):
           outfile.write("\n")
 
         it.iternext()
+
+if __name__ == "__main__":
+  
+  import getch, time 
+  button_delay = 0.2
+   
+  env = TwoGoalGridWorld()
+  print('wasd to move. w = up, a = left, s = down, d = right, q = stay.')
+  input_to_index = {'w': action_to_index['UP'],
+                    'a': action_to_index['LEFT'],
+                    's': action_to_index['DOWN'],
+                    'd': action_to_index['RIGHT'],
+                    'q': action_to_index['STAY']}
+  done = False
+  env._render()
+  while not done:
+    action = input()
+    a = input_to_index[action]
+    s, r, done, _ = env.step(a)
+    print('action: {}, reward: {}'.format(index_to_action[a], r))
+    env._render()
+    time.sleep(button_delay)

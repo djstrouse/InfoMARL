@@ -1,16 +1,13 @@
 from collections import namedtuple
 from util.anneal import log_decay
 
-experiment_name = 'bob_shared128_200k'
+experiment_name = 'bob_local_test'
 
-alice_experiment = 'job17338261_task60_2018_04_30_1604_alice_negative_state_competitive_500k_5x5'
+alice_experiment = 'job17583555_task101_2018_05_17_1630_alice_negative_action_competitive_beta0.2_discount0.8_250k_KeyGame'
 
 # justification for experiment
 '''
 running bob on alices trained with state info
-next exps: train longer, widen layers, deepen, REINFORCE -> actor-critic,
-           switch between freeze RNN + train NN and train RNN + freeze NN,
-           turn up value scale, epsilon exploration
 '''
 
 # parameters to set up (fixed) computational graph
@@ -38,7 +35,7 @@ training_param = TrainingParam(training_steps = training_steps,
                                learning_rate = 0.00005,
                                entropy_scale = log_decay(.05, .01, training_steps),
                                value_scale = .5,
-                               discount_factor = .9,
+                               discount_factor = .8,
                                max_episode_length = 100,
                                bob_goal_access = None)
 

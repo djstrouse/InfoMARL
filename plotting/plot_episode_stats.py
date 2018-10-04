@@ -1,10 +1,15 @@
 import matplotlib
 matplotlib.use('Agg')
 matplotlib.rcParams['agg.path.chunksize'] = 10000
+import pickle
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import namedtuple
 from util.stats import rate_last_N, mean_last_N, first_time_to
+
+FigureSizes = namedtuple('FigureSizes', ['figure', 'tick_label', 'axis_label', 'title'])
 
 def plot_episode_stats(stats, figure_sizes, noshow = False, directory = None):
   
@@ -98,10 +103,45 @@ def plot_episode_stats(stats, figure_sizes, noshow = False, directory = None):
   if noshow: plt.close(fig3)
   else: plt.show(fig3)
   
+  if not two_agents:
+    # Plot the modified episode reward per episode
+    window = 10
+    fig4 = plt.figure(figsize = figure_sizes.figure)
+    modified_rewards_smoothed = pd.Series(stats.episode_modified_rewards).rolling(window, min_periods = window).mean()
+    plt.plot(modified_rewards_smoothed, label = 'bob')
+    plt.xlabel("Episode", fontsize = figure_sizes.axis_label)
+    plt.ylabel("Modified Episode Reward (Smoothed)", fontsize = figure_sizes.axis_label)
+    plt.title("Modified Episode Reward over Time (Smoothed over window size {})".format(window), fontsize = figure_sizes.title)
+    plt.tick_params(labelsize = figure_sizes.tick_label)
+    if directory:
+      plt.savefig(directory+'modified_episode_rewards.pdf', format='pdf')
+      plt.savefig(directory+'modified_episode_rewards.png', format='png')
+    if noshow: plt.close(fig4)
+    else: plt.show(fig4)
+  
+    # Plot the modified episode reward per time step
+    fig5 = plt.figure(figsize = figure_sizes.figure) 
+    rate_per_what = 100
+    N = 10000
+    cumulative_steps = np.cumsum(stats.episode_lengths)
+    cumulative_modified_rewards = np.cumsum(stats.episode_modified_rewards)
+    r = rate_per_what*rate_last_N(cumulative_steps, cumulative_modified_rewards, N = N)
+    title = 'Modified reward per %i steps (last %i steps): %i' % (rate_per_what, N, r)
+    plt.plot(cumulative_steps, cumulative_modified_rewards, linewidth = 8, label = 'bob')
+    plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+    plt.ylabel("Total Modified Reward", fontsize = figure_sizes.axis_label)
+    plt.title(title, fontsize = figure_sizes.title)
+    plt.tick_params(labelsize = figure_sizes.tick_label)
+    if directory:
+      plt.savefig(directory+'modified_reward_per_timestep.pdf', format='pdf')
+      plt.savefig(directory+'modified_reward_per_timestep.png', format='png')
+    if noshow: plt.close(fig5)
+    else: plt.show(fig5)
+
   if alice.episode_action_kl is not None:
     # Plot a rolling estimate of I(action;goal|state)
     window = 1000 # measure in episodes
-    fig4 = plt.figure(figsize = figure_sizes.figure)
+    fig6 = plt.figure(figsize = figure_sizes.figure)
     cumulative_steps = np.cumsum(alice.episode_lengths)
     info_smoothed = pd.Series(np.asarray(alice.episode_action_kl)/np.asarray(alice.episode_lengths)).rolling(window, min_periods = window).mean()
     N = 10000
@@ -114,16 +154,16 @@ def plot_episode_stats(stats, figure_sizes, noshow = False, directory = None):
     if directory:
       plt.savefig(directory+'action_info.pdf', format='pdf')
       plt.savefig(directory+'action_info.png', format='png')
-    if noshow: plt.close(fig4)
-    else: plt.show(fig4)
+    if noshow: plt.close(fig6)
+    else: plt.show(fig6)
   else:
-    fig4 = None
+    fig6 = None
     action_info = None
   
   if alice.episode_lso is not None:
     # Plot a rolling estimate of I(state;goal)
     window = 1000 # measure in episodes
-    fig5 = plt.figure(figsize = figure_sizes.figure)
+    fig7 = plt.figure(figsize = figure_sizes.figure)
     cumulative_steps = np.cumsum(alice.episode_lengths)
     info_smoothed = pd.Series(np.asarray(alice.episode_lso)/np.asarray(alice.episode_lengths)).rolling(window, min_periods = window).mean()
     N = 10000
@@ -136,15 +176,15 @@ def plot_episode_stats(stats, figure_sizes, noshow = False, directory = None):
     if directory:
       plt.savefig(directory+'state_info.pdf', format='pdf')
       plt.savefig(directory+'state_info.png', format='png')
-    if noshow: plt.close(fig5)
-    else: plt.show(fig5)
+    if noshow: plt.close(fig7)
+    else: plt.show(fig7)
   else:
-    fig5 = None
+    fig7 = None
     state_info = None
   
   # Plot time steps per unit reward (smoothed)
   window = 500
-  fig6 = plt.figure(figsize = figure_sizes.figure)
+  fig8 = plt.figure(figsize = figure_sizes.figure)
   total_steps, steps_per_reward = first_time_to(stats.episode_lengths, stats.episode_rewards) 
   N = 10000
   average_steps_per_reward = mean_last_N(total_steps, steps_per_reward, N = N)
@@ -169,7 +209,40 @@ def plot_episode_stats(stats, figure_sizes, noshow = False, directory = None):
   if directory:
     plt.savefig(directory+'steps_per_reward.pdf', format='pdf')
     plt.savefig(directory+'steps_per_reward.png', format='png')
-  if noshow: plt.close(fig6)
-  else: plt.show(fig6)
+  if noshow: plt.close(fig8)
+  else: plt.show(fig8)
+  
+  # Plot rate of picking up different key types, if key env
+  if alice.episode_keys is not None and not two_agents: # not interesting to consider bob's key pickups
+    window = 100
+    fig9 = plt.figure(figsize = figure_sizes.figure)
+    master_smoothed = pd.Series([k == 'master' for k in stats.episode_keys]).rolling(window, min_periods = window).mean()
+    specific_smoothed = pd.Series([type(k) == int for k in stats.episode_keys]).rolling(window, min_periods = window).mean()
+    cumulative_steps = np.cumsum(alice.episode_lengths)
+    plt.plot(cumulative_steps, master_smoothed,  color = 'b', label = 'master key', linewidth = 8)
+    plt.plot(cumulative_steps, specific_smoothed,  color = 'r', label = 'goal-specific key', linewidth = 8)
+    plt.legend(loc = 'center right', fontsize = figure_sizes.axis_label)
+    plt.xlabel("Time Steps", fontsize = figure_sizes.axis_label)
+    plt.ylabel("% Episodes Key Type Picked Up", fontsize = figure_sizes.axis_label)
+    plt.tick_params(labelsize = figure_sizes.tick_label)
+    if directory:
+      plt.savefig(directory+'key_pickups.pdf', format='pdf')
+      plt.savefig(directory+'key_pickups.png', format='png')
+    if noshow: plt.close(fig9)
+    else: plt.show(fig9)
 
   return average_steps_per_reward, average_steps_per_reward_alice, action_info, state_info
+
+if __name__ == "__main__":
+  figure_sizes = FigureSizes(figure = (50,25),
+                             tick_label = 60,
+                             axis_label = 80,
+                             title = 80)
+  os.chdir("..")
+  experiment = 'job17583555_task101_2018_05_17_1630_alice_negative_action_competitive_beta0.2_discount0.8_250k_KeyGame'
+  r = pickle.load(open(os.getcwd()+'/results/'+experiment+'/results.pkl','rb'))
+  
+  d = os.getcwd()+'/results/'+experiment+'/alt/'
+  if not os.path.exists(d): os.makedirs(d)
+  
+  plot_episode_stats(r, figure_sizes, noshow = True, directory = d)

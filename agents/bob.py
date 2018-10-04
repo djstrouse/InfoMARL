@@ -6,7 +6,7 @@ class RNNObserver():
     over goal. Own state plus RNN output is fed into two networks to produce
     policy and value function. Trained with REINFORCE."""
     
-    def __init__(self, env, shared_layer_sizes = [],
+    def __init__(self, alice_env, bob_env, shared_layer_sizes = [],
                  policy_layer_sizes = [], value_layer_sizes = [], use_RNN = True):
       
       self.use_RNN = use_RNN             
@@ -22,8 +22,8 @@ class RNNObserver():
       # rnn processing observations of other agent behaving
       if self.use_RNN:
         with tf.variable_scope('rnn'):
-            rnn_inputs = tf.one_hot(self.obs_states * env.nA + self.obs_actions,
-                                    depth = env.nA * env.nS) # one-hot of (s,a)
+            rnn_inputs = tf.one_hot(self.obs_states * alice_env.nA + self.obs_actions,
+                                    depth = alice_env.nA * alice_env.nS) # one-hot of (s,a)
             cell = tf.contrib.rnn.GRUCell(1) # scalar core state
             # rnn_inputs must be 1 X t x d, where d = nS*nA
             _, z = tf.nn.dynamic_rnn(cell,
@@ -35,7 +35,7 @@ class RNNObserver():
         self.z = tf.placeholder(tf.float32, [1], name = "goal_belief")
           
       # concat agent state and rnn output as input to policy/value heads
-      one_hot_state = tf.one_hot(self.state, depth = env.nS)
+      one_hot_state = tf.one_hot(self.state, depth = bob_env.nS)
       x = tf.expand_dims(tf.concat([one_hot_state, self.z], axis = 0), 0)
       
       # shared layers (fully-connected MLP)
@@ -74,7 +74,7 @@ class RNNObserver():
                                      name = 'layer_%i' % i,
                                      kernel_initializer = tf.contrib.layers.variance_scaling_initializer())
           i += 1
-        self.action_logits = tf.squeeze(tf.layers.dense(x_policy, env.nA,
+        self.action_logits = tf.squeeze(tf.layers.dense(x_policy, bob_env.nA,
                                                         activation = None,
                                                         name = 'layer_%i' % i), axis = 0)
         self.action_probs = tf.nn.softmax(self.action_logits)
